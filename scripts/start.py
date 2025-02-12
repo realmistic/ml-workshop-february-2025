@@ -5,12 +5,38 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-from scripts.model_ARIMA import download_stock_data
+# from scripts.model_ARIMA import download_stock_data
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.stattools import acf, pacf
 from statsmodels.tsa.arima.model import ARIMA
 import matplotlib.pyplot as plt
 import pickle
+
+def download_stock_data(ticker_symbol):
+    """
+    Download stock data with error handling and validation
+    """
+    try:
+        # Create ticker object and get history
+        yticker = yf.Ticker(ticker_symbol)
+        df = yticker.history(period='max')
+        
+        if df.empty:
+            raise ValueError(f"No data downloaded for {ticker_symbol}")
+            
+        print(f"Downloaded {len(df)} days of {ticker_symbol} data")
+        
+        # Basic validation
+        required_columns = ['Open', 'Close', 'Volume']
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+            
+        return df
+    
+    except Exception as e:
+        print(f"Error downloading {ticker_symbol}: {str(e)}")
+        return None
 
 def plot_analysis(df, ticker):
     """
