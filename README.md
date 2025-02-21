@@ -5,7 +5,7 @@ This repository contains materials for the Machine Learning Workshop focused on 
 
 ## Introduction
 
-Hi I'm **Ivan Brigida** an Analyst at Google with a background in **Economics** and **Data Analysis**. Before joining Google I worked in the banking sector and 3 years ago I started investing in **U.S. markets** while living in **Ireland**. My work and investing experience focus on using **economic data** to understand the economy, make financial decisions, and develop market strategies. You can read more about my approach in my [blog post about macro indicators affecting the stock market](https://pythoninvest.com/long-read/macro-indicators-affecting-stock-market).
+Hi I'm **Ivan Brigida** an Analyst at Google with a background in **Economics** and **Data Analysis**. Before joining Google I worked in the banking sector and 3 years ago I started investing in **U.S. markets** while living in **Ireland**. My work and investing experience focus on using **economic data** to understand the economy, make financial decisions, and develop market strategies. You can read my latest article about [using LLMs for long-term financial news analysis](https://pythoninvest.com/long-read/long-term-financial-news-using-llms), and find more articles at [pythoninvest.com/blog](https://pythoninvest.com/blog).
 
 Last year I ran the **[Stock Markets Analysis Zoomcamp](https://pythoninvest.com/course)** which attracted **1800+ registrations**. I'll be running it again in **2025** you can express your interest here:
 
