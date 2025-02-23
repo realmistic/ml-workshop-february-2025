@@ -118,3 +118,129 @@ Output: Final `notebooks/dnn_experiment.ipynb`
   * Started complex, ended simpler
   * Consistent visualization
   * Comparable metrics
+
+## Production Implementation
+
+### 1. Database Setup
+Sequence:
+```
+Create SQLite database structure with:
+- Raw market data table
+- Feature tables for each model
+- Predictions tables
+- Performance metrics table
+
+Output: scripts/init_db.py for database initialization
+```
+
+Output: Database schema implementation with proper foreign key relationships and timestamps.
+
+### 2. Data Pipeline
+Sequence:
+
+1. Data Collection:
+```
+Implement market data updates:
+- Download from Stooq (after YFinance rate limiting)
+- Calculate technical indicators
+- Store in SQLite database
+Output: scripts/update_data.py
+```
+
+2. Feature Engineering:
+```
+For each model:
+- ARIMA: returns, volatility, moving averages
+- Prophet: formatted closing prices
+- DNN: extended feature set with RSI
+Implementation in update_data.py
+```
+
+### 3. Model Implementation
+Sequence:
+
+1. ARIMA Model:
+```
+Convert notebook to production:
+- Class-based implementation
+- Training pipeline
+- Prediction generation
+- Performance tracking
+Output: scripts/models/arima.py
+```
+
+2. Prophet Model:
+```
+Production implementation with:
+- Automated training
+- Confidence intervals
+- Performance metrics
+Output: scripts/models/prophet.py
+```
+
+3. DNN Model:
+```
+Production-ready implementation:
+- Sequence generation
+- Model architecture
+- Training process
+- Prediction pipeline
+Output: scripts/models/dnn.py
+```
+
+### 4. Training Pipeline
+```
+Create unified training script:
+- Load and prepare data
+- Train all models
+- Generate predictions
+- Update metrics
+Output: scripts/train_models.py
+```
+
+### 5. Streamlit Dashboard
+```
+Create interactive dashboard:
+- Combined predictions view
+- Individual model metrics
+- Performance comparison
+Output: app/main.py
+```
+
+### 6. Automation
+```
+Implement GitHub Actions:
+- Daily data updates
+- Model retraining
+- Database commits
+- Streamlit deployment
+Output: .github/workflows/daily_update.yml
+```
+
+## Running the Project
+
+1. Setup:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
+
+2. Initialize:
+```bash
+python scripts/init_db.py
+python scripts/update_data.py
+python scripts/train_models.py
+```
+
+3. Run Dashboard:
+```bash
+streamlit run app/main.py
+```
+
+## Troubleshooting
+
+- Data Source: Using Stooq after YFinance rate limiting issues
+- Database: Check table relationships and constraints
+- Models: Monitor training logs and metrics
+- Dashboard: Verify data pipeline completion
