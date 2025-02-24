@@ -26,6 +26,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# data
-data/
