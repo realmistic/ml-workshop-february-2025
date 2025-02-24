@@ -139,7 +139,7 @@ def plot_test_predictions(market_data, predictions):
             x=test_data.index,
             y=test_data['close'],
             name='Actual',
-            line=dict(color='white', width=3)
+            line=dict(color='#ff00ff', width=3)  # Changed to magenta for better visibility on both themes
         ))
         
         colors = {
@@ -206,6 +206,55 @@ def plot_test_predictions(market_data, predictions):
     
     return fig
 
+def plot_win_rate_comparison(metrics):
+    """Create bar chart comparing model win rates vs unconditional."""
+    fig = go.Figure()
+    
+    colors = {
+        'arima': '#4287f5',  # Bright blue
+        'prophet': '#42f554',  # Bright green
+        'dnn': '#f54242'  # Bright red
+    }
+    
+    for model, metric_df in metrics.items():
+        if not metric_df.empty:
+            win_rate = metric_df['win_rate'].iloc[0]
+            uncond_win = metric_df['uncond_win_rate'].iloc[0]
+            difference = win_rate - uncond_win
+            
+            fig.add_trace(go.Bar(
+                x=[model.upper()],
+                y=[difference],
+                name=model.upper(),
+                marker_color=colors[model],
+                text=[f"{difference:+.1f}%"],  # Add + sign for positive values
+                textposition='outside',  # Place text above bars
+                textfont=dict(size=18)  # Increase text size even more
+            ))
+    
+    fig.update_layout(
+        title={
+            'text': 'Model Win Rate vs Market (Percentage Points)',
+            'y': 0.95,  # Move title up
+            'font': {'size': 24}  # Bigger title font
+        },
+        yaxis_title={
+            'text': 'Win Rate Difference (%)',
+            'font': {'size': 16}  # Bigger axis title font
+        },
+        xaxis_tickfont={'size': 16},  # Bigger x-axis tick labels
+        yaxis_tickfont={'size': 16},  # Bigger y-axis tick labels
+        showlegend=False,
+        template='presentation',
+        height=600,  # Make the chart taller
+        margin=dict(t=80, b=50)  # More top margin for title
+    )
+    
+    # Add horizontal line at y=0
+    fig.add_hline(y=0, line_dash="dash", line_color="gray")
+    
+    return fig
+
 def display_metrics(metrics):
     """Display comprehensive model performance metrics."""
     st.subheader("Model Performance Metrics")
@@ -216,10 +265,12 @@ def display_metrics(metrics):
         if not metric_df.empty:
             metrics_data.append({
                 'Model': model.upper(),
-                'MAE': f"${metric_df['mae'].iloc[0]:.2f}",
-                'RMSE': f"${metric_df['rmse'].iloc[0]:.2f}",
+                'MAE': f"{metric_df['mae'].iloc[0]:.2f}",
+                'RMSE': f"{metric_df['rmse'].iloc[0]:.2f}",
                 'Win Rate': f"{metric_df['win_rate'].iloc[0]:.1f}%",
                 'Loss Rate': f"{metric_df['loss_rate'].iloc[0]:.1f}%",
+                'Uncond. Win': f"{metric_df['uncond_win_rate'].iloc[0]:.1f}%",
+                'Uncond. Loss': f"{metric_df['uncond_loss_rate'].iloc[0]:.1f}%",
                 'Avg Return': f"{metric_df['avg_return'].iloc[0]:.2f}%",
                 'P/L Ratio': f"{metric_df['pl_ratio'].iloc[0]:.2f}",
                 'Trading Freq': f"{metric_df['trading_freq'].iloc[0]:.1f}%",
@@ -229,6 +280,10 @@ def display_metrics(metrics):
     if metrics_data:
         metrics_df = pd.DataFrame(metrics_data)
         st.dataframe(metrics_df.set_index('Model'), use_container_width=True)
+        
+        # Add win rate comparison plot
+        fig_win_rate = plot_win_rate_comparison(metrics)
+        st.plotly_chart(fig_win_rate, use_container_width=True)
     else:
         st.write("No metrics available")
 
