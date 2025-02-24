@@ -21,9 +21,9 @@ Help us grow and improve PythonInvest:
 2. **Contribute**: 🍴 Fork the repo, try it, tweak the indicators and share feedback with a link.
 3. **Donate**: ☕ [Buy Me a Coffee](https://buymeacoffee.com/pythoninvest) or ❤️ [GitHub Sponsorship](https://github.com/sponsors/realmistic).
 
-This workshop builds on our [previous workshop](https://github.com/realmistic/economics-workshop-dec-2024) which focused on data collection and visualization. The [Economics Dashboard](https://economics-workshop-dec-2024.streamlit.app/) from that workshop is still updated weekly through GitHub Actions and runs on Streamlit Cloud, demonstrating the full pipeline from data collection to deployment.
+This workshop builds on our [previous workshop](https://github.com/realmistic/economics-workshop-dec-2024) which focused on data collection and visualization. The [Economics Dashboard](https://economics-workshop-dec-2024.streamlit.app/) from that workshop is still updated weekly through GitHub Actions and runs on Streamlit Cloud, demonstrating the full pipeline from data collection to deployment. Similarly, this workshop's [Market Predictions Dashboard](https://trendcast.streamlit.app/) is also updated daily with the latest predictions.
 
-Like the previous workshop, this project extensively utilized AI-assisted development (~$60 in AI costs) using:
+Like the previous workshop, this project extensively utilized AI-assisted development (~$112 in AI costs) using:
 - [Cline Extension for VS Code](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev)
 - Anthropic Claude 3 Sonnet (20241022)
 
