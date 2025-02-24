@@ -44,10 +44,18 @@ jobs:
         python scripts/train_models.py
       timeout-minutes: 15  # Set timeout for model training
         
-    - name: Commit and push if there are changes
+    - name: Configure Git
       run: |
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
+        
+    - name: Fix file permissions
+      run: |
+        chmod 644 data/market_data.db
+        
+    - name: Commit and push changes
+      run: |
+        git pull origin main --rebase
         git add data/market_data.db
         git commit -m "Update market data and predictions [skip ci]" || echo "No changes to commit"
         git push
