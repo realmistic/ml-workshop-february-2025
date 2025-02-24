@@ -108,11 +108,55 @@ pip install -r requirements.txt
 
 ## Project Structure
 
-- `data/`: Directory for storing datasets
-- `notebooks/`: Jupyter notebooks for analysis and exploration
-  * `prophet_experiment.ipynb`: Quick-start Prophet analysis
-  * `arima_experiment.ipynb`: Statistical ARIMA modeling
-  * `dnn_experiment.ipynb`: Advanced Deep Learning approach
+```
+.
+├── app/
+│   └── main.py                 # Streamlit dashboard application
+├── data/
+│   └── market_data.db         # SQLite database with market data and predictions
+├── notebooks/
+│   ├── prophet_experiment.ipynb  # Quick-start Prophet analysis
+│   ├── arima_experiment.ipynb    # Statistical ARIMA modeling
+│   └── dnn_experiment.ipynb      # Advanced Deep Learning approach
+├── scripts/
+│   ├── init_db.py             # Database initialization script
+│   ├── update_data.py         # Market data update script
+│   ├── train_models.py        # Model training pipeline
+│   └── models/
+│       ├── arima_model.py     # ARIMA model implementation
+│       ├── prophet_model.py   # Prophet model implementation
+│       └── dnn_model.py       # Deep Neural Network model
+├── static/
+│   └── images/                # Project images and screenshots
+└── .github/
+    └── workflows/             # GitHub Actions automation
+```
+
+## Running Locally
+
+After installing the requirements, you can:
+
+1. Initialize the database:
+```bash
+python scripts/init_db.py
+```
+
+2. Update market data:
+```bash
+python scripts/update_data.py
+```
+
+3. Train models and generate predictions:
+```bash
+python scripts/train_models.py
+```
+
+4. Run the Streamlit dashboard:
+```bash
+streamlit run app/main.py
+```
+
+The dashboard will be available at http://localhost:8501
 
 ## Model Comparison
 
