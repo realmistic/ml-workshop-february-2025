@@ -133,9 +133,9 @@ def update_market_data(tickers=None):
                 params=(ticker,)
             ).iloc[0]['max_date']
             
-            start_date = datetime.strptime(latest_date, '%Y-%m-%d').date() + timedelta(days=1) if latest_date else '2020-01-01'
+            start_date = datetime.strptime(latest_date, '%Y-%m-%d').date() + timedelta(days=1) if latest_date else '1999-01-01'
         except:
-            start_date = '2020-01-01'
+            start_date = '1999-01-01'
         
         # Get market data
         logger.info(f"Downloading {ticker} data from {start_date}")
