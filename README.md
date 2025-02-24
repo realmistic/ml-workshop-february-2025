@@ -1,4 +1,10 @@
 # ML Workshop February 2025
+
+🚀 **Try the live dashboard: [Market Predictions Dashboard](https://trendcast.streamlit.app/)**
+
+![Market Predictions showing model performance and forecasts](static/images/dashboard_preview.png)
+*Test Predictions Dashboard showing model forecasts and actual market data*
+
 **📺 Watch Workshop Recording [Coming Soon]()**
 
 This repository contains materials for the Machine Learning Workshop focused on financial time series prediction. The workshop explores three different approaches to predicting stock prices: ARIMA, Prophet, and Deep Neural Networks.
