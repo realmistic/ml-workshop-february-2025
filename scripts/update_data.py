@@ -212,26 +212,95 @@ def update_market_data(tickers=None, use_cloud=None):
         
         logger.info(f"Storing {len(new_data)} new records for {ticker}")
         
-        # Store raw data
-        new_data[['date', 'ticker', 'open', 'high', 'low', 'close', 'volume']].to_sql(
-            'raw_market_data',
-            conn,
-            if_exists='append',
-            index=False
-        )
-        
-        # Store ARIMA features
-        arima_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20']].copy()
-        arima_features.to_sql('arima_features', conn, if_exists='append', index=False)
-        
-        # Store Prophet features
-        prophet_features = new_features[['date', 'ticker', 'close']].copy()
-        prophet_features.columns = ['date', 'ticker', 'y']
-        prophet_features.to_sql('prophet_features', conn, if_exists='append', index=False)
-        
-        # Store DNN features
-        dnn_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20', 'rsi']].copy()
-        dnn_features.to_sql('dnn_features', conn, if_exists='append', index=False)
+        try:
+            # Store raw data
+            new_data[['date', 'ticker', 'open', 'high', 'low', 'close', 'volume']].to_sql(
+                'raw_market_data',
+                conn,
+                if_exists='append',
+                index=False
+            )
+            
+            # Store ARIMA features
+            arima_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20']].copy()
+            arima_features.to_sql('arima_features', conn, if_exists='append', index=False)
+            
+            # Store Prophet features
+            prophet_features = new_features[['date', 'ticker', 'close']].copy()
+            prophet_features.columns = ['date', 'ticker', 'y']
+            prophet_features.to_sql('prophet_features', conn, if_exists='append', index=False)
+            
+            # Store DNN features
+            dnn_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20', 'rsi']].copy()
+            dnn_features.to_sql('dnn_features', conn, if_exists='append', index=False)
+        except Exception as e:
+            if "table already exists" in str(e):
+                # If the table already exists, try using direct SQL INSERT statements
+                print(f"Table already exists error: {str(e)}")
+                print("Trying direct SQL INSERT statements...")
+                
+                cursor = conn.cursor()
+                
+                # Insert raw data
+                for _, row in new_data[['date', 'ticker', 'open', 'high', 'low', 'close', 'volume']].iterrows():
+                    try:
+                        cursor.execute(
+                            "INSERT INTO raw_market_data (date, ticker, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (row['date'], row['ticker'], row['open'], row['high'], row['low'], row['close'], row['volume'])
+                        )
+                    except Exception as insert_error:
+                        if "UNIQUE constraint failed" in str(insert_error):
+                            # Skip duplicate entries
+                            continue
+                        else:
+                            print(f"Error inserting raw data: {str(insert_error)}")
+                
+                # Insert ARIMA features
+                for _, row in arima_features.iterrows():
+                    try:
+                        cursor.execute(
+                            "INSERT INTO arima_features (date, ticker, returns, volatility, ma_5, ma_20) VALUES (?, ?, ?, ?, ?, ?)",
+                            (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'])
+                        )
+                    except Exception as insert_error:
+                        if "UNIQUE constraint failed" in str(insert_error):
+                            # Skip duplicate entries
+                            continue
+                        else:
+                            print(f"Error inserting ARIMA features: {str(insert_error)}")
+                
+                # Insert Prophet features
+                for _, row in prophet_features.iterrows():
+                    try:
+                        cursor.execute(
+                            "INSERT INTO prophet_features (date, ticker, y) VALUES (?, ?, ?)",
+                            (row['date'], row['ticker'], row['y'])
+                        )
+                    except Exception as insert_error:
+                        if "UNIQUE constraint failed" in str(insert_error):
+                            # Skip duplicate entries
+                            continue
+                        else:
+                            print(f"Error inserting Prophet features: {str(insert_error)}")
+                
+                # Insert DNN features
+                for _, row in dnn_features.iterrows():
+                    try:
+                        cursor.execute(
+                            "INSERT INTO dnn_features (date, ticker, returns, volatility, ma_5, ma_20, rsi) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'], row['rsi'])
+                        )
+                    except Exception as insert_error:
+                        if "UNIQUE constraint failed" in str(insert_error):
+                            # Skip duplicate entries
+                            continue
+                        else:
+                            print(f"Error inserting DNN features: {str(insert_error)}")
+                
+                conn.commit()
+            else:
+                # Re-raise the exception if it's not a "table already exists" error
+                raise
         
         print(f"Updated {ticker} data from {start_date} to {raw_data['date'].iloc[-1]}")
     
