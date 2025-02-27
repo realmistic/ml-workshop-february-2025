@@ -36,14 +36,38 @@ jobs:
           SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
           USE_SQLITECLOUD: "1"
         run: |
-          # Initialize the cloud database
-          python scripts/init_cloud_db.py
+          # Initialize the cloud database (with detailed output)
+          echo "Initializing SQLite Cloud database..."
+          python -u scripts/init_cloud_db.py
           
-          # Sync data to the cloud
-          python scripts/sync_to_cloud.py
+          # Sync data to the cloud (with detailed output)
+          echo "Syncing data to SQLite Cloud..."
+          python -u scripts/sync_to_cloud.py
           
           # Verify the sync
-          python -c "import os; os.environ['USE_SQLITECLOUD'] = '1'; from db_connection import get_db_connection; conn = get_db_connection(); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM raw_market_data'); print(f'Verified {cursor.fetchone()[0]} rows in raw_market_data table'); conn.close()"
+          echo "Verifying the sync..."
+          python -c "
+          import os
+          import sys
+          os.environ['USE_SQLITECLOUD'] = '1'
+          from db_connection import get_db_connection
+          try:
+              conn = get_db_connection()
+              cursor = conn.cursor()
+              cursor.execute('SELECT name FROM sqlite_master WHERE type=\"table\"')
+              tables = [row[0] for row in cursor.fetchall()]
+              print(f'Tables in SQLite Cloud: {tables}')
+              if 'raw_market_data' in tables:
+                  cursor.execute('SELECT COUNT(*) FROM raw_market_data')
+                  print(f'Verified {cursor.fetchone()[0]} rows in raw_market_data table')
+              else:
+                  print('ERROR: raw_market_data table not found')
+                  sys.exit(1)
+              conn.close()
+          except Exception as e:
+              print(f'ERROR: {str(e)}')
+              sys.exit(1)
+          "
       
       - name: Commit and push changes to local database
         run: |

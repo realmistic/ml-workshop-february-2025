@@ -40,8 +40,22 @@ def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
     # Initialize cloud database if needed
     if force_init:
         print("Initializing cloud database tables...")
-        from init_cloud_db import init_cloud_db
-        init_cloud_db(force=True)
+        try:
+            # Import and run init_cloud_db
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from init_cloud_db import init_cloud_db
+            init_success = init_cloud_db(force=True)
+            if not init_success:
+                print("Failed to initialize cloud database")
+                return False
+            
+            # Reconnect to cloud database after initialization
+            cloud_conn.close()
+            cloud_conn = get_db_connection(use_cloud=True)
+            print("Reconnected to SQLite Cloud after initialization")
+        except Exception as e:
+            print(f"Error initializing cloud database: {str(e)}")
+            return False
     
     # Disable foreign key constraints temporarily
     try:
