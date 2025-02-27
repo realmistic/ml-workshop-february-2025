@@ -5,7 +5,10 @@
 ![Market Predictions showing model performance and forecasts](static/images/dashboard_preview.png)
 *Test Predictions Dashboard showing model forecasts and actual market data*
 
-**📺 Watch Workshop Recording [Coming Soon]()**
+**📺 Watch Workshop Recording [On YouTube](https://www.youtube.com/watch?v=PxAh08Pcmj4&list=PLSWnIAnueyu8KBcwhE48ASp20nZMg2qtt&index=1)**
+
+[![Predicting Financial Time-Series - Ivan Brigida](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DPxAh08Pcmj4%26list%3DPLSWnIAnueyu8KBcwhE48ASp20nZMg2qtt%26index%3D1)](https://www.youtube.com/watch?v=PxAh08Pcmj4&list=PLSWnIAnueyu8KBcwhE48ASp20nZMg2qtt&index=1)
+
 
 This repository contains materials for the Machine Learning Workshop focused on financial time series prediction. The workshop explores three different approaches to predicting stock prices: ARIMA, Prophet, and Deep Neural Networks.
 
