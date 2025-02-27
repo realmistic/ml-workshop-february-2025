@@ -48,6 +48,17 @@ jobs:
         run: |
           echo "Training models with updated data..."
           python -u scripts/train_models.py
+          
+          # Show the number of predictions
+          python -c "
+          import sqlite3
+          import pandas as pd
+          conn = sqlite3.connect('data/market_data.db')
+          for model in ['arima', 'prophet', 'dnn']:
+              count = pd.read_sql_query(f'SELECT COUNT(*) as count FROM {model}_predictions', conn).iloc[0]['count']
+              print(f'{model.upper()} predictions: {count} rows')
+          conn.close()
+          "
       
       - name: Initialize and Sync to SQLite Cloud
         env:
@@ -67,6 +78,7 @@ jobs:
           python -c "
           import os
           import sys
+          import pandas as pd
           os.environ['USE_SQLITECLOUD'] = '1'
           from db_connection import get_db_connection
           try:
@@ -77,12 +89,28 @@ jobs:
               print(f'Tables in SQLite Cloud: {tables}')
               
               if 'raw_market_data' in tables:
+                  # Check row count
                   cursor.execute('SELECT COUNT(*) FROM raw_market_data')
                   count_result = cursor.fetchone()
                   if count_result is not None:
                       print(f'Verified {count_result[0]} rows in raw_market_data table')
                   else:
                       print('WARNING: Could not get row count for raw_market_data table')
+                  
+                  # Check latest date
+                  try:
+                      latest_date = pd.read_sql_query('SELECT MAX(date) as max_date FROM raw_market_data', conn).iloc[0]['max_date']
+                      print(f'Latest data date in SQLite Cloud: {latest_date}')
+                  except Exception as e:
+                      print(f'WARNING: Could not get latest date: {str(e)}')
+                  
+                  # Check prediction counts
+                  for model in ['arima', 'prophet', 'dnn']:
+                      try:
+                          count = pd.read_sql_query(f'SELECT COUNT(*) as count FROM {model}_predictions', conn).iloc[0]['count']
+                          print(f'{model.upper()} predictions in SQLite Cloud: {count} rows')
+                      except Exception as e:
+                          print(f'WARNING: Could not get {model} prediction count: {str(e)}')
               else:
                   print('ERROR: raw_market_data table not found')
                   sys.exit(1)
