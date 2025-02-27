@@ -138,8 +138,24 @@ def update_market_data(tickers=None):
                 params=(ticker,)
             ).iloc[0]['max_date']
             
-            start_date = datetime.strptime(latest_date, '%Y-%m-%d').date() + timedelta(days=1) if latest_date else '1999-01-01'
-        except:
+            # Always get at least the last 7 days of data to ensure we have the latest
+            if latest_date:
+                latest_date_obj = datetime.strptime(latest_date, '%Y-%m-%d').date()
+                today = datetime.now().date()
+                days_diff = (today - latest_date_obj).days
+                
+                if days_diff <= 7:
+                    # If the latest date is within the last 7 days, get data from 7 days before the latest date
+                    start_date = latest_date_obj - timedelta(days=7)
+                else:
+                    # Otherwise, get data from the day after the latest date
+                    start_date = latest_date_obj + timedelta(days=1)
+            else:
+                start_date = '1999-01-01'
+            
+            print(f"Using start date: {start_date}")
+        except Exception as e:
+            print(f"Error determining start date: {str(e)}")
             start_date = '1999-01-01'
         
         # Get market data
