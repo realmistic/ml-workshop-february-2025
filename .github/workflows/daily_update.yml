@@ -57,15 +57,24 @@ jobs:
               cursor.execute('SELECT name FROM sqlite_master WHERE type=\"table\"')
               tables = [row[0] for row in cursor.fetchall()]
               print(f'Tables in SQLite Cloud: {tables}')
+              
               if 'raw_market_data' in tables:
                   cursor.execute('SELECT COUNT(*) FROM raw_market_data')
-                  print(f'Verified {cursor.fetchone()[0]} rows in raw_market_data table')
+                  count_result = cursor.fetchone()
+                  if count_result is not None:
+                      print(f'Verified {count_result[0]} rows in raw_market_data table')
+                  else:
+                      print('WARNING: Could not get row count for raw_market_data table')
               else:
                   print('ERROR: raw_market_data table not found')
                   sys.exit(1)
+              
               conn.close()
+              print('Verification completed successfully')
           except Exception as e:
+              import traceback
               print(f'ERROR: {str(e)}')
+              traceback.print_exc()
               sys.exit(1)
           "
       
