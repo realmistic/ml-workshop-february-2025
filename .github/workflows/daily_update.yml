@@ -28,11 +28,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Update market data
-        run: python scripts/update_data.py
+      - name: Update market data from external sources
+        run: |
+          # Force update from external sources
+          echo "Updating market data from external sources..."
+          python -u scripts/update_data.py
+          
+          # Show the latest date in the database
+          python -c "
+          import sqlite3
+          import pandas as pd
+          conn = sqlite3.connect('data/market_data.db')
+          latest_date = pd.read_sql_query('SELECT MAX(date) as max_date FROM raw_market_data', conn).iloc[0]['max_date']
+          print(f'Latest data date: {latest_date}')
+          conn.close()
+          "
       
-      - name: Train models
-        run: python scripts/train_models.py
+      - name: Train models with updated data
+        run: |
+          echo "Training models with updated data..."
+          python -u scripts/train_models.py
       
       - name: Initialize and Sync to SQLite Cloud
         env:
