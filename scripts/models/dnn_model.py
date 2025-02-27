@@ -20,7 +20,7 @@ class DNNPredictor:
         """Prepare data for DNN model."""
         # Get raw data
         query = """
-        SELECT 
+        SELECT
             r.date,
             r.open,
             r.close,

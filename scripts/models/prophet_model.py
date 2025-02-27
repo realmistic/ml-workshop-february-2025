@@ -12,7 +12,7 @@ class ProphetPredictor:
     def prepare_data(self, conn, ticker):
         """Prepare data for Prophet model."""
         query = """
-        SELECT 
+        SELECT
             r.date as ds,
             r.open,
             r.close,

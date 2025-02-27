@@ -128,7 +128,7 @@ class ARIMAPredictor:
         """Generate predictions for ticker"""
         # Get raw data
         query = """
-        SELECT 
+        SELECT
             r.date,
             r.open,
             r.close,
