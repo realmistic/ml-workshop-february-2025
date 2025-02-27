@@ -29,9 +29,35 @@ class DNNPredictor:
         WHERE r.ticker = ?
         ORDER BY r.date;
         """
-        df = pd.read_sql_query(query, conn, params=(ticker,))
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
+        try:
+            # Try using pandas read_sql_query first
+            try:
+                df = pd.read_sql_query(query, conn, params=(ticker,))
+            except Exception as pandas_error:
+                print(f"Pandas read_sql_query failed: {str(pandas_error)}")
+                print("Falling back to direct SQL execution...")
+                
+                # Fallback to direct SQL execution
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker,))
+                rows = cursor.fetchall()
+                
+                if not rows:
+                    print("Warning: Query returned 0 rows")
+                    return None, None
+                
+                # Get column names
+                column_names = [description[0] for description in cursor.description]
+                
+                # Convert to DataFrame
+                df = pd.DataFrame(rows, columns=column_names)
+            
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+            print(f"Query returned {len(df)} rows")
+        except Exception as e:
+            print(f"Error executing query: {str(e)}")
+            return None, None
         
         # Create feature columns
         feature_columns = []
@@ -321,13 +347,45 @@ class DNNPredictor:
             cursor.execute("DELETE FROM dnn_predictions WHERE ticker = ?", (ticker,))
             conn.commit()
             
-            # Insert new predictions
-            predictions_df.to_sql(
-                'dnn_predictions',
-                conn,
-                if_exists='append',
-                index=False
-            )
+            # Insert new predictions using batch inserts
+            try:
+                # Define batch size
+                BATCH_SIZE = 500
+                
+                # Convert DataFrame to list of tuples
+                prediction_values = predictions_df.values.tolist()
+                
+                print(f"Processing {len(prediction_values)} predictions in batches of {BATCH_SIZE}...")
+                
+                cursor = conn.cursor()
+                
+                for i in range(0, len(prediction_values), BATCH_SIZE):
+                    batch = prediction_values[i:i+BATCH_SIZE]
+                    placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
+                    flattened_values = [val for row in batch for val in row]
+                    
+                    cursor.execute(f"""
+                        INSERT OR REPLACE INTO dnn_predictions 
+                        (date, ticker, predicted_value, confidence_lower, confidence_upper, is_future) 
+                        VALUES {placeholders}
+                    """, flattened_values)
+                    
+                    print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(prediction_values) + BATCH_SIZE - 1)//BATCH_SIZE} for dnn_predictions")
+                
+                conn.commit()
+                print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
+                
+            except Exception as e:
+                print(f"Error during batch insert: {str(e)}")
+                print("Falling back to pandas to_sql...")
+                
+                # Fallback to pandas to_sql
+                predictions_df.to_sql(
+                    'dnn_predictions',
+                    conn,
+                    if_exists='append',
+                    index=False
+                )
         
         # Update performance metrics
         metrics = self.evaluate(conn, ticker)

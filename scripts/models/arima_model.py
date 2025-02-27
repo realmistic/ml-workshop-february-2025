@@ -143,7 +143,28 @@ class ARIMAPredictor:
         """
         print(f"Executing query: {query} with params: {ticker}")
         try:
-            df = pd.read_sql_query(query, conn, params=(ticker,))
+            # Try using pandas read_sql_query first
+            try:
+                df = pd.read_sql_query(query, conn, params=(ticker,))
+            except Exception as pandas_error:
+                print(f"Pandas read_sql_query failed: {str(pandas_error)}")
+                print("Falling back to direct SQL execution...")
+                
+                # Fallback to direct SQL execution
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker,))
+                rows = cursor.fetchall()
+                
+                if not rows:
+                    print("Warning: Query returned 0 rows")
+                    return None
+                
+                # Get column names
+                column_names = [description[0] for description in cursor.description]
+                
+                # Convert to DataFrame
+                df = pd.DataFrame(rows, columns=column_names)
+                
             print(f"Query returned {len(df)} rows")
             if len(df) == 0:
                 print("Warning: Query returned 0 rows")
@@ -212,13 +233,45 @@ class ARIMAPredictor:
             cursor.execute("DELETE FROM arima_predictions WHERE ticker = ?", (ticker,))
             conn.commit()
             
-            # Insert new predictions
-            predictions_df.to_sql(
-                'arima_predictions',
-                conn,
-                if_exists='append',
-                index=False
-            )
+            # Insert new predictions using batch inserts
+            try:
+                # Define batch size
+                BATCH_SIZE = 500
+                
+                # Convert DataFrame to list of tuples
+                prediction_values = predictions_df.values.tolist()
+                
+                print(f"Processing {len(prediction_values)} predictions in batches of {BATCH_SIZE}...")
+                
+                cursor = conn.cursor()
+                
+                for i in range(0, len(prediction_values), BATCH_SIZE):
+                    batch = prediction_values[i:i+BATCH_SIZE]
+                    placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
+                    flattened_values = [val for row in batch for val in row]
+                    
+                    cursor.execute(f"""
+                        INSERT OR REPLACE INTO arima_predictions 
+                        (date, ticker, predicted_value, confidence_lower, confidence_upper, is_future) 
+                        VALUES {placeholders}
+                    """, flattened_values)
+                    
+                    print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(prediction_values) + BATCH_SIZE - 1)//BATCH_SIZE} for arima_predictions")
+                
+                conn.commit()
+                print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
+                
+            except Exception as e:
+                print(f"Error during batch insert: {str(e)}")
+                print("Falling back to pandas to_sql...")
+                
+                # Fallback to pandas to_sql
+                predictions_df.to_sql(
+                    'arima_predictions',
+                    conn,
+                    if_exists='append',
+                    index=False
+                )
         
         return df
 
