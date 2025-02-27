@@ -1,67 +1,46 @@
-name: Daily Market Data Update
+name: Daily Database Update
 
 on:
   schedule:
-    # Run at 23:00 UTC (after NYSE market hours + buffer)
-    - cron: '0 23 * * 1-5'  # Monday to Friday
-  workflow_dispatch:  # Allow manual trigger
-
-permissions:
-  contents: write  # Add explicit permission to write to repository
+    # Run at 1:00 UTC every day
+    - cron: '0 1 * * *'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  update:
+  update_database:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Set maximum job runtime
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
       
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'  # Cache pip dependencies
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: Initialize database
-      run: |
-        python scripts/init_db.py
-      continue-on-error: false  # Stop if database init fails
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
       
-    - name: Update market data
-      run: |
-        python scripts/update_data.py
-      timeout-minutes: 10  # Set timeout for data update
-        
-    - name: Train models and update predictions
-      run: |
-        python scripts/train_models.py
-      timeout-minutes: 15  # Set timeout for model training
-        
-    - name: Commit and push changes
-      run: |
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        chmod 644 data/market_data.db
-        git add -f data/market_data.db
-        git commit -m "Update market data and predictions [skip ci]"
-        git push -f
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy:
-    needs: update
-    runs-on: ubuntu-latest
-    if: success()  # Only run if update job succeeds
-    
-    steps:
-    - name: Deploy to Streamlit Cloud
-      run: |
-        # Streamlit Cloud automatically deploys on push to main branch
-        echo "Streamlit Cloud will automatically deploy the updated app"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Update market data
+        run: python scripts/update_data.py
+      
+      - name: Train models
+        run: python scripts/train_models.py
+      
+      - name: Sync to SQLite Cloud
+        env:
+          SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
+          USE_SQLITECLOUD: "1"
+        run: python scripts/sync_to_cloud.py
+      
+      - name: Commit and push changes to local database
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add data/market_data.db
+          git commit -m "Update market data and predictions" || echo "No changes to commit"
+          git push
