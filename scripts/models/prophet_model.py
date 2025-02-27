@@ -299,22 +299,22 @@ class ProphetPredictor:
             conn.commit()
             
             # Insert new predictions using batch inserts
-            try:
-                # Define batch size
-                BATCH_SIZE = 500
+            # Define batch size
+            BATCH_SIZE = 500
+            
+            # Convert DataFrame to list of tuples
+            prediction_values = predictions_df.values.tolist()
+            
+            print(f"Processing {len(prediction_values)} predictions in batches of {BATCH_SIZE}...")
+            
+            cursor = conn.cursor()
+            
+            for i in range(0, len(prediction_values), BATCH_SIZE):
+                batch = prediction_values[i:i+BATCH_SIZE]
+                placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
+                flattened_values = [val for row in batch for val in row]
                 
-                # Convert DataFrame to list of tuples
-                prediction_values = predictions_df.values.tolist()
-                
-                print(f"Processing {len(prediction_values)} predictions in batches of {BATCH_SIZE}...")
-                
-                cursor = conn.cursor()
-                
-                for i in range(0, len(prediction_values), BATCH_SIZE):
-                    batch = prediction_values[i:i+BATCH_SIZE]
-                    placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
-                    flattened_values = [val for row in batch for val in row]
-                    
+                try:
                     cursor.execute(f"""
                         INSERT OR REPLACE INTO prophet_predictions 
                         (date, ticker, predicted_value, confidence_lower, confidence_upper, is_future) 
@@ -322,27 +322,19 @@ class ProphetPredictor:
                     """, flattened_values)
                     
                     print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(prediction_values) + BATCH_SIZE - 1)//BATCH_SIZE} for prophet_predictions")
-                
-                conn.commit()
-                print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
-                
-            except Exception as e:
-                print(f"Error during batch insert: {str(e)}")
-                print("Falling back to pandas to_sql...")
-                
-                # Fallback to pandas to_sql
-                predictions_df.to_sql(
-                    'prophet_predictions',
-                    conn,
-                    if_exists='append',
-                    index=False
-                )
+                except Exception as batch_error:
+                    print(f"Error during batch insert: {str(batch_error)}")
+                    conn.rollback()
+                    raise  # Re-raise the exception to handle it at a higher level
+            
+            conn.commit()
+            print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
         
         # Update performance metrics
         metrics = self.evaluate(conn, ticker)
         
-        # Store metrics
-        metrics_df = pd.DataFrame([{
+        # Store metrics using batch insert
+        metrics_data = [{
             'date': datetime.now().strftime('%Y-%m-%d'),
             'ticker': ticker,
             'model': 'prophet',
@@ -357,14 +349,35 @@ class ProphetPredictor:
             'n_trades': metrics['test']['n_trades'],
             'trading_freq': metrics['test']['trading_freq'],
             'pl_ratio': metrics['test']['pl_ratio']
-        }])
+        }]
         
-        metrics_df.to_sql(
-            'model_performance',
-            conn,
-            if_exists='append',
-            index=False
-        )
+        # Convert to list of values
+        metrics_values = [[
+            m['date'], m['ticker'], m['model'], 
+            m['mae'], m['rmse'], m['accuracy'], 
+            m['win_rate'], m['loss_rate'], 
+            m['uncond_win_rate'], m['uncond_loss_rate'], 
+            m['avg_return'], m['n_trades'], 
+            m['trading_freq'], m['pl_ratio']
+        ] for m in metrics_data]
+        
+        # Insert metrics using batch insert
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT OR REPLACE INTO model_performance 
+                (date, ticker, model, mae, rmse, accuracy, win_rate, loss_rate, 
+                uncond_win_rate, uncond_loss_rate, avg_return, n_trades, 
+                trading_freq, pl_ratio) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, metrics_values[0])
+            
+            conn.commit()
+            print(f"Successfully inserted metrics for Prophet model")
+        except Exception as e:
+            print(f"Error inserting metrics: {str(e)}")
+            conn.rollback()
+            raise
         
         return predictions_df, metrics['test']
 
