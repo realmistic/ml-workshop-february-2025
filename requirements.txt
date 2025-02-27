@@ -23,6 +23,7 @@ yfinance>=0.2.35
 # Database
 sqlite3-api>=2.0.1
 sqlitecloud>=0.0.83  # SQLite Cloud SDK (use latest available version)
+sqlalchemy>=2.0.0    # For SQLAlchemy ORM and database connection
 python-dotenv>=1.0.0  # For .env file support
 
 # Development tools
