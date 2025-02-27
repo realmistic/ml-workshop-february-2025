@@ -28,6 +28,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
+      - name: Initialize SQLite Cloud database
+        env:
+          SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
+          USE_SQLITECLOUD: "1"
+        run: |
+          # Initialize the cloud database (with detailed output)
+          echo "Initializing SQLite Cloud database..."
+          python -u scripts/init_cloud_db.py
+      
       - name: Update market data from external sources
         env:
           SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
@@ -73,21 +82,13 @@ jobs:
           conn.close()
           "
       
-      - name: Initialize and Sync to SQLite Cloud
+      - name: Verify SQLite Cloud Database
         env:
           SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
           USE_SQLITECLOUD: "1"
         run: |
-          # Initialize the cloud database (with detailed output)
-          echo "Initializing SQLite Cloud database..."
-          python -u scripts/init_cloud_db.py
-          
-          # Sync data to the cloud (with detailed output)
-          echo "Syncing data to SQLite Cloud..."
-          python -u scripts/sync_to_cloud.py
-          
-          # Verify the sync
-          echo "Verifying the sync..."
+          # Verify the database
+          echo "Verifying the SQLite Cloud database..."
           python -c "
           import os
           import sys
@@ -136,5 +137,3 @@ jobs:
               traceback.print_exc()
               sys.exit(1)
           "
-      
-      # No commit step needed - we only sync to SQLite Cloud
