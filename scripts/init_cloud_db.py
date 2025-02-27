@@ -46,6 +46,7 @@ def init_cloud_db(force=False):
             low REAL,
             close REAL,
             volume INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (date, ticker)
         )
         """,
@@ -55,18 +56,13 @@ def init_cloud_db(force=False):
         CREATE TABLE IF NOT EXISTS arima_features (
             date TEXT,
             ticker TEXT,
-            close REAL,
             returns REAL,
-            ma5 REAL,
-            ma20 REAL,
-            ma50 REAL,
-            rsi14 REAL,
-            bb_upper REAL,
-            bb_lower REAL,
-            macd REAL,
-            macd_signal REAL,
-            macd_hist REAL,
-            PRIMARY KEY (date, ticker)
+            volatility REAL,
+            ma_5 REAL,
+            ma_20 REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -75,10 +71,10 @@ def init_cloud_db(force=False):
         CREATE TABLE IF NOT EXISTS prophet_features (
             date TEXT,
             ticker TEXT,
-            close REAL,
-            ds TEXT,
             y REAL,
-            PRIMARY KEY (date, ticker)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -87,25 +83,14 @@ def init_cloud_db(force=False):
         CREATE TABLE IF NOT EXISTS dnn_features (
             date TEXT,
             ticker TEXT,
-            close REAL,
             returns REAL,
-            returns_3d REAL,
-            returns_5d REAL,
-            returns_10d REAL,
-            returns_20d REAL,
-            volatility_5d REAL,
-            volatility_10d REAL,
-            volatility_20d REAL,
-            ma5 REAL,
-            ma20 REAL,
-            ma50 REAL,
-            rsi14 REAL,
-            bb_upper REAL,
-            bb_lower REAL,
-            macd REAL,
-            macd_signal REAL,
-            macd_hist REAL,
-            PRIMARY KEY (date, ticker)
+            volatility REAL,
+            ma_5 REAL,
+            ma_20 REAL,
+            rsi REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -117,8 +102,10 @@ def init_cloud_db(force=False):
             predicted_value REAL,
             confidence_lower REAL,
             confidence_upper REAL,
-            is_future INTEGER,
-            PRIMARY KEY (date, ticker)
+            is_future BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker, created_at),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -130,8 +117,10 @@ def init_cloud_db(force=False):
             predicted_value REAL,
             confidence_lower REAL,
             confidence_upper REAL,
-            is_future INTEGER,
-            PRIMARY KEY (date, ticker)
+            is_future BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker, created_at),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -143,8 +132,10 @@ def init_cloud_db(force=False):
             predicted_value REAL,
             confidence_lower REAL,
             confidence_upper REAL,
-            is_future INTEGER,
-            PRIMARY KEY (date, ticker)
+            is_future BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker, created_at),
+            FOREIGN KEY (date, ticker) REFERENCES raw_market_data (date, ticker)
         )
         """,
         
@@ -152,19 +143,21 @@ def init_cloud_db(force=False):
         """
         CREATE TABLE IF NOT EXISTS model_performance (
             date TEXT,
-            model TEXT,
             ticker TEXT,
+            model TEXT,
             mae REAL,
             rmse REAL,
+            accuracy REAL,
             win_rate REAL,
             loss_rate REAL,
             uncond_win_rate REAL,
             uncond_loss_rate REAL,
             avg_return REAL,
-            pl_ratio REAL,
-            trading_freq REAL,
             n_trades INTEGER,
-            PRIMARY KEY (date, model, ticker)
+            trading_freq REAL,
+            pl_ratio REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (date, ticker, model)
         )
         """
     ]
