@@ -35,7 +35,11 @@ def download_stock_data(ticker_symbol):
 def transform_stock_data(df):
     """Transform stock data for ARIMA"""
     if df is None:
+        print("Error: df is None in transform_stock_data")
         return None
+    
+    print(f"DataFrame in transform_stock_data has {len(df)} rows")
+    print(f"DataFrame columns: {df.columns.tolist()}")
     
     # Reset index to make the date a column
     df = df.reset_index()
@@ -137,7 +141,16 @@ class ARIMAPredictor:
         WHERE r.ticker = ?
         ORDER BY r.date;
         """
-        df = pd.read_sql_query(query, conn, params=(ticker,))
+        print(f"Executing query: {query} with params: {ticker}")
+        try:
+            df = pd.read_sql_query(query, conn, params=(ticker,))
+            print(f"Query returned {len(df)} rows")
+            if len(df) == 0:
+                print("Warning: Query returned 0 rows")
+                return None
+        except Exception as e:
+            print(f"Error executing query: {str(e)}")
+            return None
         
         # Transform data
         df = transform_stock_data(df)
@@ -264,8 +277,16 @@ class ARIMAPredictor:
         # Generate predictions
         df = self.predict(conn, ticker)
         
+        if df is None:
+            print(f"Error: predict returned None for ticker {ticker}")
+            return None, None
+        
         # Update performance metrics
-        metrics = self.evaluate(df)
+        try:
+            metrics = self.evaluate(df)
+        except Exception as e:
+            print(f"Error evaluating model: {str(e)}")
+            return df, None
         
         # Delete existing metrics
         cursor = conn.cursor()
