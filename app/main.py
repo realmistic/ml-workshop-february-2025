@@ -1,8 +1,13 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import os
+import sys
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db_connection import get_db_connection
 
 # Set page config
 st.set_page_config(
@@ -11,7 +16,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-def load_data(conn):
+def load_data(conn=None):
+    """Load data from database."""
+    # Get database connection if not provided
+    if conn is None:
+        conn = get_db_connection(pandas_friendly=True)
     """Load data from database."""
     # Get raw data
     market_data = pd.read_sql_query(
@@ -291,8 +300,8 @@ def main():
     st.title("Market Predictions Dashboard")
     
     try:
-        # Connect to database
-        conn = sqlite3.connect('data/market_data.db')
+        # Connect to database (will use environment variables to determine which DB)
+        conn = get_db_connection()
         
         # Load data
         market_data, predictions, metrics = load_data(conn)
@@ -301,9 +310,23 @@ def main():
             st.warning("No data available. Please run the data update script.")
             return
         
-        # Display last update time
+        # Display last update time and database info
         last_update = market_data.index[-1].strftime('%Y-%m-%d')
-        st.write(f"Last data update: {last_update}")
+        
+        # Check if using SQLite Cloud
+        using_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
+        
+        # Create columns for info display
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write(f"Last data update: {last_update}")
+        
+        with col2:
+            if using_cloud:
+                st.success("Using SQLite Cloud database")
+            else:
+                st.info("Using local SQLite database")
         
         # Create tabs for different visualizations
         tab1, tab2, tab3 = st.tabs(["Data Splits", "Test Predictions", "Model Metrics"])
