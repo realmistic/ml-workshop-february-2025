@@ -31,6 +31,8 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
     if use_cloud is None:
         # Check environment variable, default to local if not set
         use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
+        print(f"USE_SQLITECLOUD environment variable: {os.environ.get('USE_SQLITECLOUD', 'not set')}")
+        print(f"Using cloud: {use_cloud}")
     
     if use_cloud and "SQLITECLOUD_URL" in os.environ:
         try:
@@ -99,19 +101,19 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
                     def __init__(self, cloud_conn):
                         self.cloud_conn = cloud_conn
                         self.is_cloud = True
-                    
+
                     def cursor(self):
                         return self.cloud_conn.cursor()
-                    
+
                     def commit(self):
                         return self.cloud_conn.commit()
-                    
+
                     def rollback(self):
                         return self.cloud_conn.rollback()
-                    
+
                     def close(self):
                         return self.cloud_conn.close()
-                    
+
                     def execute(self, sql, params=None):
                         cursor = self.cloud_conn.cursor()
                         if params:
