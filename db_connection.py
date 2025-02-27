@@ -93,37 +93,8 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
             
             print("SQLite Cloud connection successful")
             
-            # If pandas_friendly is True, create a local SQLite database in memory
-            # and use it as a proxy for the cloud database
-            if pandas_friendly:
-                # Create a wrapper class that provides a pandas-friendly interface
-                class PandasFriendlyConnection:
-                    def __init__(self, cloud_conn):
-                        self.cloud_conn = cloud_conn
-                        self.is_cloud = True
-
-                    def cursor(self):
-                        return self.cloud_conn.cursor()
-
-                    def commit(self):
-                        return self.cloud_conn.commit()
-
-                    def rollback(self):
-                        return self.cloud_conn.rollback()
-
-                    def close(self):
-                        return self.cloud_conn.close()
-
-                    def execute(self, sql, params=None):
-                        cursor = self.cloud_conn.cursor()
-                        if params:
-                            return cursor.execute(sql, params)
-                        else:
-                            return cursor.execute(sql)
-                
-                return PandasFriendlyConnection(cloud_conn)
-            else:
-                return cloud_conn
+            # Return the cloud connection
+            return cloud_conn
             
         except ImportError as e:
             print(f"SQLite Cloud SDK not installed or import error: {str(e)}")
@@ -141,4 +112,18 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
             return sqlite3.connect('data/market_data.db')
     else:
         # Use local SQLite
-        return sqlite3.connect('data/market_data.db')
+        if pandas_friendly:
+            try:
+                # Import SQLAlchemy
+                from sqlalchemy import create_engine
+                
+                # Create a SQLAlchemy engine
+                engine = create_engine(f"sqlite:///data/market_data.db")
+                
+                # Return the engine
+                return engine
+            except ImportError:
+                print("SQLAlchemy not installed, falling back to direct connection")
+                return sqlite3.connect('data/market_data.db')
+        else:
+            return sqlite3.connect('data/market_data.db')
