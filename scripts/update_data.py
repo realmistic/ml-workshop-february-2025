@@ -1,5 +1,4 @@
 import pandas as pd
-import sqlite3
 from datetime import datetime, timedelta
 import numpy as np
 import logging
@@ -8,6 +7,12 @@ import ssl
 import urllib3
 import certifi
 from io import StringIO
+import os
+import sys
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db_connection import get_db_connection
 
 # Set up logging
 logging.basicConfig(
@@ -122,7 +127,7 @@ def update_market_data(tickers=None):
         tickers = [tickers]
     
     # Connect to database
-    conn = sqlite3.connect('data/market_data.db')
+    conn = get_db_connection()
     
     for ticker in tickers:
         try:
