@@ -13,18 +13,26 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db_connection import get_db_connection
 
-def init_cloud_db():
+def init_cloud_db(force=False):
     """Initialize SQLite Cloud database."""
     if "SQLITECLOUD_URL" not in os.environ:
         print("Error: SQLITECLOUD_URL environment variable not set")
         return False
     
-    if os.environ.get("USE_SQLITECLOUD", "0").lower() not in ("1", "true", "yes"):
+    if not force and os.environ.get("USE_SQLITECLOUD", "0").lower() not in ("1", "true", "yes"):
         print("Error: USE_SQLITECLOUD environment variable not set to '1'")
+        print("Use --force to override this check")
         return False
     
+    print(f"Initializing SQLite Cloud database with URL: {os.environ['SQLITECLOUD_URL'][:20]}...")
+    
     # Connect to cloud database
-    cloud_conn = get_db_connection(use_cloud=True)
+    try:
+        cloud_conn = get_db_connection(use_cloud=True)
+        print("Successfully connected to SQLite Cloud")
+    except Exception as e:
+        print(f"Error connecting to SQLite Cloud: {str(e)}")
+        return False
     
     # Tables to create
     tables = [

@@ -31,11 +31,19 @@ jobs:
       - name: Train models
         run: python scripts/train_models.py
       
-      - name: Sync to SQLite Cloud
+      - name: Initialize and Sync to SQLite Cloud
         env:
           SQLITECLOUD_URL: ${{ secrets.SQLITECLOUD_URL }}
           USE_SQLITECLOUD: "1"
-        run: python scripts/sync_to_cloud.py
+        run: |
+          # Initialize the cloud database
+          python scripts/init_cloud_db.py
+          
+          # Sync data to the cloud
+          python scripts/sync_to_cloud.py
+          
+          # Verify the sync
+          python -c "import os; os.environ['USE_SQLITECLOUD'] = '1'; from db_connection import get_db_connection; conn = get_db_connection(); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM raw_market_data'); print(f'Verified {cursor.fetchone()[0]} rows in raw_market_data table'); conn.close()"
       
       - name: Commit and push changes to local database
         run: |

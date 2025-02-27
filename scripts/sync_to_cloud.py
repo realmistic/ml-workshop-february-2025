@@ -13,17 +13,35 @@ from db_connection import get_db_connection
 # Increase socket timeout
 socket.setdefaulttimeout(60)  # 60 seconds timeout
 
-def sync_to_cloud(max_retries=3, batch_size=500):
+def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
     """Sync local database to SQLite Cloud."""
     if "SQLITECLOUD_URL" not in os.environ:
         print("Error: SQLITECLOUD_URL environment variable not set")
         return False
     
+    print(f"Syncing to SQLite Cloud database with URL: {os.environ['SQLITECLOUD_URL'][:20]}...")
+    
     # Connect to local database
-    local_conn = sqlite3.connect('data/market_data.db')
+    try:
+        local_conn = sqlite3.connect('data/market_data.db')
+        print("Successfully connected to local database")
+    except Exception as e:
+        print(f"Error connecting to local database: {str(e)}")
+        return False
     
     # Connect to cloud database
-    cloud_conn = get_db_connection(use_cloud=True)
+    try:
+        cloud_conn = get_db_connection(use_cloud=True)
+        print("Successfully connected to SQLite Cloud")
+    except Exception as e:
+        print(f"Error connecting to SQLite Cloud: {str(e)}")
+        return False
+    
+    # Initialize cloud database if needed
+    if force_init:
+        print("Initializing cloud database tables...")
+        from init_cloud_db import init_cloud_db
+        init_cloud_db(force=True)
     
     # Disable foreign key constraints temporarily
     try:
