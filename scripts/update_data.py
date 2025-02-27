@@ -212,64 +212,140 @@ def update_market_data(tickers=None, use_cloud=None):
         
         logger.info(f"Storing {len(new_data)} new records for {ticker}")
         
-        # Use direct SQL INSERT statements instead of to_sql
-        print("Using direct SQL INSERT statements...")
+        # Use batch inserts for better performance
+        print("Using batch inserts...")
         
         cursor = conn.cursor()
         
-        # Insert raw data
-        for _, row in new_data[['date', 'ticker', 'open', 'high', 'low', 'close', 'volume']].iterrows():
-            try:
-                cursor.execute(
-                    "INSERT OR REPLACE INTO raw_market_data (date, ticker, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (row['date'], row['ticker'], row['open'], row['high'], row['low'], row['close'], row['volume'])
-                )
-            except Exception as insert_error:
-                print(f"Error inserting raw data: {str(insert_error)}")
+        # Define batch size
+        BATCH_SIZE = 500
         
-        # Prepare ARIMA features
-        arima_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20']].copy()
-        
-        # Insert ARIMA features
-        for _, row in arima_features.iterrows():
-            try:
-                cursor.execute(
-                    "INSERT OR REPLACE INTO arima_features (date, ticker, returns, volatility, ma_5, ma_20) VALUES (?, ?, ?, ?, ?, ?)",
-                    (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'])
-                )
-            except Exception as insert_error:
-                print(f"Error inserting ARIMA features: {str(insert_error)}")
-        
-        # Prepare Prophet features
-        prophet_features = new_features[['date', 'ticker', 'close']].copy()
-        prophet_features.columns = ['date', 'ticker', 'y']
-        
-        # Insert Prophet features
-        for _, row in prophet_features.iterrows():
-            try:
-                cursor.execute(
-                    "INSERT OR REPLACE INTO prophet_features (date, ticker, y) VALUES (?, ?, ?)",
-                    (row['date'], row['ticker'], row['y'])
-                )
-            except Exception as insert_error:
-                print(f"Error inserting Prophet features: {str(insert_error)}")
-        
-        # Prepare DNN features
-        dnn_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20', 'rsi']].copy()
-        
-        # Insert DNN features
-        for _, row in dnn_features.iterrows():
-            try:
-                cursor.execute(
-                    "INSERT OR REPLACE INTO dnn_features (date, ticker, returns, volatility, ma_5, ma_20, rsi) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'], row['rsi'])
-                )
-            except Exception as insert_error:
-                print(f"Error inserting DNN features: {str(insert_error)}")
-        
-        # Commit all changes
-        conn.commit()
-        print(f"Inserted {len(new_data)} records using direct SQL statements")
+        try:
+            # Insert raw data in batches
+            raw_data_columns = ['date', 'ticker', 'open', 'high', 'low', 'close', 'volume']
+            raw_data_values = new_data[raw_data_columns].values.tolist()
+            
+            print(f"Processing {len(raw_data_values)} rows in batches of {BATCH_SIZE}...")
+            
+            for i in range(0, len(raw_data_values), BATCH_SIZE):
+                batch = raw_data_values[i:i+BATCH_SIZE]
+                placeholders = ','.join(['(?, ?, ?, ?, ?, ?, ?)'] * len(batch))
+                flattened_values = [val for row in batch for val in row]
+                
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO raw_market_data 
+                    (date, ticker, open, high, low, close, volume) 
+                    VALUES {placeholders}
+                """, flattened_values)
+                
+                print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(raw_data_values) + BATCH_SIZE - 1)//BATCH_SIZE} for raw_market_data")
+            
+            # Prepare and insert ARIMA features in batches
+            arima_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20']].copy()
+            arima_values = arima_features.values.tolist()
+            
+            for i in range(0, len(arima_values), BATCH_SIZE):
+                batch = arima_values[i:i+BATCH_SIZE]
+                placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
+                flattened_values = [val for row in batch for val in row]
+                
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO arima_features 
+                    (date, ticker, returns, volatility, ma_5, ma_20) 
+                    VALUES {placeholders}
+                """, flattened_values)
+                
+                print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(arima_values) + BATCH_SIZE - 1)//BATCH_SIZE} for arima_features")
+            
+            # Prepare and insert Prophet features in batches
+            prophet_features = new_features[['date', 'ticker', 'close']].copy()
+            prophet_features.columns = ['date', 'ticker', 'y']
+            prophet_values = prophet_features.values.tolist()
+            
+            for i in range(0, len(prophet_values), BATCH_SIZE):
+                batch = prophet_values[i:i+BATCH_SIZE]
+                placeholders = ','.join(['(?, ?, ?)'] * len(batch))
+                flattened_values = [val for row in batch for val in row]
+                
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO prophet_features 
+                    (date, ticker, y) 
+                    VALUES {placeholders}
+                """, flattened_values)
+                
+                print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(prophet_values) + BATCH_SIZE - 1)//BATCH_SIZE} for prophet_features")
+            
+            # Prepare and insert DNN features in batches
+            dnn_features = new_features[['date', 'ticker', 'returns', 'volatility', 'ma_5', 'ma_20', 'rsi']].copy()
+            dnn_values = dnn_features.values.tolist()
+            
+            for i in range(0, len(dnn_values), BATCH_SIZE):
+                batch = dnn_values[i:i+BATCH_SIZE]
+                placeholders = ','.join(['(?, ?, ?, ?, ?, ?, ?)'] * len(batch))
+                flattened_values = [val for row in batch for val in row]
+                
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO dnn_features 
+                    (date, ticker, returns, volatility, ma_5, ma_20, rsi) 
+                    VALUES {placeholders}
+                """, flattened_values)
+                
+                print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(dnn_values) + BATCH_SIZE - 1)//BATCH_SIZE} for dnn_features")
+            
+            # Commit all changes
+            conn.commit()
+            print(f"Successfully inserted {len(new_data)} records using batch inserts")
+            
+        except Exception as e:
+            print(f"Error during batch insert: {str(e)}")
+            conn.rollback()
+            
+            # Fallback to individual inserts if batch insert fails
+            print("Falling back to individual inserts...")
+            
+            # Insert raw data
+            for _, row in new_data[raw_data_columns].iterrows():
+                try:
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO raw_market_data (date, ticker, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (row['date'], row['ticker'], row['open'], row['high'], row['low'], row['close'], row['volume'])
+                    )
+                except Exception as insert_error:
+                    print(f"Error inserting raw data: {str(insert_error)}")
+            
+            # Insert ARIMA features
+            for _, row in arima_features.iterrows():
+                try:
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO arima_features (date, ticker, returns, volatility, ma_5, ma_20) VALUES (?, ?, ?, ?, ?, ?)",
+                        (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'])
+                    )
+                except Exception as insert_error:
+                    print(f"Error inserting ARIMA features: {str(insert_error)}")
+            
+            # Insert Prophet features
+            for _, row in prophet_features.iterrows():
+                try:
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO prophet_features (date, ticker, y) VALUES (?, ?, ?)",
+                        (row['date'], row['ticker'], row['y'])
+                    )
+                except Exception as insert_error:
+                    print(f"Error inserting Prophet features: {str(insert_error)}")
+            
+            # Insert DNN features
+            for _, row in dnn_features.iterrows():
+                try:
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO dnn_features (date, ticker, returns, volatility, ma_5, ma_20, rsi) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (row['date'], row['ticker'], row['returns'], row['volatility'], row['ma_5'], row['ma_20'], row['rsi'])
+                    )
+                except Exception as insert_error:
+                    print(f"Error inserting DNN features: {str(insert_error)}")
+            
+            # Commit all changes
+            conn.commit()
+            print(f"Inserted {len(new_data)} records using individual inserts (fallback)")
         
         print(f"Updated {ticker} data from {start_date} to {raw_data['date'].iloc[-1]}")
     
