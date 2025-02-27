@@ -79,12 +79,7 @@ jobs:
           "
       
       - name: Commit and push changes to local database
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add data/market_data.db
-          git commit -m "Update market data and predictions" || echo "No changes to commit"
-          
-          # Use GitHub token for authentication
-          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
-          git push
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update market data and predictions"
+          file_pattern: "data/market_data.db"
