@@ -20,8 +20,9 @@ def load_data(conn=None):
     """Load data from database."""
     # Get database connection if not provided
     if conn is None:
+        # Use pandas_friendly=True to avoid warnings with SQLite Cloud
         conn = get_db_connection(pandas_friendly=True)
-    """Load data from database."""
+    
     # Get raw data
     market_data = pd.read_sql_query(
         """
@@ -301,7 +302,7 @@ def main():
     
     try:
         # Connect to database (will use environment variables to determine which DB)
-        conn = get_db_connection()
+        conn = get_db_connection(pandas_friendly=True)
         
         # Load data
         market_data, predictions, metrics = load_data(conn)

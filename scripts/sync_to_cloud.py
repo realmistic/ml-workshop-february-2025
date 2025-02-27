@@ -49,23 +49,13 @@ def sync_to_cloud(max_retries=3, batch_size=500):
         try:
             print(f"Syncing table: {table}")
             
-            # Get the latest date for this table in the cloud database
-            try:
-                latest_date_query = f"SELECT MAX(date) as max_date FROM {table}"
-                cloud_cursor = cloud_conn.cursor()
-                cloud_cursor.execute(latest_date_query)
-                result = cloud_cursor.fetchone()
-                latest_date = result[0] if result and result[0] else '1900-01-01'
-            except Exception as e:
-                print(f"Error getting latest date for {table}: {str(e)}")
-                latest_date = '1900-01-01'
-            
-            # Get data from local database that's newer than what's in the cloud
-            query = f"SELECT * FROM {table} WHERE date > ?"
-            local_data = pd.read_sql_query(query, local_conn, params=(latest_date,))
+            # Force a full sync by getting all data from the local database
+            print(f"Forcing full sync for table: {table}")
+            query = f"SELECT * FROM {table}"
+            local_data = pd.read_sql_query(query, local_conn)
             
             if local_data.empty:
-                print(f"No new data to sync for table: {table}")
+                print(f"No data to sync for table: {table}")
                 continue
             
             print(f"Syncing {len(local_data)} rows for table: {table}")
@@ -78,6 +68,10 @@ def sync_to_cloud(max_retries=3, batch_size=500):
                     
                     # Begin a transaction explicitly
                     cursor.execute("BEGIN TRANSACTION")
+                    
+                    # First, delete all existing data in the table
+                    print(f"Deleting existing data from {table}...")
+                    cursor.execute(f"DELETE FROM {table}")
                     
                     # Get column names
                     columns = local_data.columns.tolist()
