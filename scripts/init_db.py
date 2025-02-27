@@ -1,12 +1,17 @@
-import sqlite3
 import os
+import sys
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db_connection import get_db_connection
 
 def create_database():
     # Ensure data directory exists
     os.makedirs('data', exist_ok=True)
     
-    # Connect to SQLite database (creates it if it doesn't exist)
-    conn = sqlite3.connect('data/market_data.db')
+    # Connect to database (local by default)
+    conn = get_db_connection(use_cloud=False)
     cursor = conn.cursor()
 
     # Create raw market data table with ticker column
