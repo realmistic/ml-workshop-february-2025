@@ -22,6 +22,8 @@ yfinance>=0.2.35
 
 # Database
 sqlite3-api>=2.0.1
+sqlitecloud>=0.0.83  # SQLite Cloud SDK (use latest available version)
+python-dotenv>=1.0.0  # For .env file support
 
 # Development tools
 jupyter>=1.0.0
