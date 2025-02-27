@@ -26,28 +26,20 @@ class DNNPredictor:
             r.close,
             r.volume
         FROM raw_market_data r
-        WHERE r.ticker = ?
+        WHERE r.ticker = :ticker
         ORDER BY r.date;
         """
         try:
-            # Execute query directly using cursor
-            cursor = conn.cursor()
-            cursor.execute(query, (ticker,))
-            rows = cursor.fetchall()
-            
-            if not rows:
-                print("Warning: Query returned 0 rows")
-                return None, None
-            
-            # Get column names
-            column_names = [description[0] for description in cursor.description]
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(rows, columns=column_names)
+            # Use pandas read_sql_query with SQLAlchemy
+            df = pd.read_sql_query(query, conn, params={"ticker": ticker})
             
             df['date'] = pd.to_datetime(df['date'])
             df.set_index('date', inplace=True)
             print(f"Query returned {len(df)} rows")
+            
+            if len(df) == 0:
+                print("Warning: Query returned 0 rows")
+                return None, None
         except Exception as e:
             print(f"Error executing query: {str(e)}")
             return None, None

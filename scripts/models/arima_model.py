@@ -138,25 +138,13 @@ class ARIMAPredictor:
             r.close,
             r.volume
         FROM raw_market_data r
-        WHERE r.ticker = ?
+        WHERE r.ticker = :ticker
         ORDER BY r.date;
         """
         print(f"Executing query: {query} with params: {ticker}")
         try:
-            # Execute query directly using cursor
-            cursor = conn.cursor()
-            cursor.execute(query, (ticker,))
-            rows = cursor.fetchall()
-            
-            if not rows:
-                print("Warning: Query returned 0 rows")
-                return None
-            
-            # Get column names
-            column_names = [description[0] for description in cursor.description]
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(rows, columns=column_names)
+            # Use pandas read_sql_query with SQLAlchemy
+            df = pd.read_sql_query(query, conn, params={"ticker": ticker})
             
             print(f"Query returned {len(df)} rows")
             if len(df) == 0:
