@@ -300,42 +300,46 @@ def display_metrics(metrics):
 def main():
     st.title("Market Predictions Dashboard")
     
-    # Debug information
-    st.write("Environment variables:")
-    st.write(f"USE_SQLITECLOUD: {os.environ.get('USE_SQLITECLOUD', 'Not set')}")
-    st.write(f"SQLITECLOUD_URL: {'Set (hidden)' if 'SQLITECLOUD_URL' in os.environ else 'Not set'}")
-    
-    # Check if SQLite Cloud SDK is installed
-    try:
-        import sqlitecloud
-        st.write(f"SQLite Cloud SDK: Installed (version: {getattr(sqlitecloud, '__version__', 'unknown')})")
+    # Only show debug information in development mode
+    if os.environ.get("STREAMLIT_DEBUG", "0").lower() in ("1", "true", "yes"):
+        st.write("Environment variables:")
+        st.write(f"USE_SQLITECLOUD: {os.environ.get('USE_SQLITECLOUD', 'Not set')}")
+        st.write(f"SQLITECLOUD_URL: {'Set (hidden)' if 'SQLITECLOUD_URL' in os.environ else 'Not set'}")
         
-        # If SQLite Cloud is enabled, check the connection and list tables
-        if os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes"):
-            try:
-                # Connect directly to SQLite Cloud
-                cloud_conn = sqlitecloud.connect(os.environ["SQLITECLOUD_URL"])
-                cursor = cloud_conn.cursor()
-                
-                # List tables
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = [row[0] for row in cursor.fetchall()]
-                st.write(f"SQLite Cloud tables: {', '.join(tables) if tables else 'No tables found'}")
-                
-                # Check if raw_market_data exists
-                if 'raw_market_data' in tables:
-                    # Count rows
-                    cursor.execute("SELECT COUNT(*) FROM raw_market_data")
-                    count = cursor.fetchone()[0]
-                    st.write(f"raw_market_data table has {count} rows")
-                else:
-                    st.error("raw_market_data table not found in SQLite Cloud database")
-                
-                cloud_conn.close()
-            except Exception as e:
-                st.error(f"Error connecting to SQLite Cloud: {str(e)}")
-    except ImportError:
-        st.error("SQLite Cloud SDK is not installed. Please add 'sqlitecloud>=0.0.83' to requirements.txt")
+        # Check if SQLite Cloud SDK is installed
+        try:
+            import sqlitecloud
+            st.write(f"SQLite Cloud SDK: Installed (version: {getattr(sqlitecloud, '__version__', 'unknown')})")
+            
+            # If SQLite Cloud is enabled, check the connection and list tables
+            if os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes"):
+                try:
+                    # Connect directly to SQLite Cloud
+                    cloud_conn = sqlitecloud.connect(os.environ["SQLITECLOUD_URL"])
+                    cursor = cloud_conn.cursor()
+                    
+                    # List tables
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    tables = [row[0] for row in cursor.fetchall()]
+                    st.write(f"SQLite Cloud tables: {', '.join(tables) if tables else 'No tables found'}")
+                    
+                    # Check if raw_market_data exists
+                    if 'raw_market_data' in tables:
+                        # Count rows
+                        cursor.execute("SELECT COUNT(*) FROM raw_market_data")
+                        count_result = cursor.fetchone()
+                        if count_result is not None:
+                            st.write(f"raw_market_data table has {count_result[0]} rows")
+                        else:
+                            st.warning("Could not get row count for raw_market_data table")
+                    else:
+                        st.error("raw_market_data table not found in SQLite Cloud database")
+                    
+                    cloud_conn.close()
+                except Exception as e:
+                    st.error(f"Error connecting to SQLite Cloud: {str(e)}")
+        except ImportError:
+            st.error("SQLite Cloud SDK is not installed. Please add 'sqlitecloud>=0.0.83' to requirements.txt")
     
     try:
         # Connect to database (will use environment variables to determine which DB)
