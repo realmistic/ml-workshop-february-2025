@@ -1,9 +1,14 @@
-import sqlite3
+import os
+import sys
+import logging
+from datetime import datetime
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db_connection import get_db_connection
 from models.arima_model import ARIMAPredictor
 from models.prophet_model import ProphetPredictor
 from models.dnn_model import DNNPredictor
-import logging
-from datetime import datetime
 
 # Set up logging
 logging.basicConfig(
@@ -31,7 +36,7 @@ def train_and_update_all_models(tickers=None):
     """Train all models and update predictions for specified tickers."""
     try:
         # Connect to database
-        conn = sqlite3.connect('data/market_data.db')
+        conn = get_db_connection()
         logger.info("Connected to database")
         
         # Clear previous predictions
