@@ -313,14 +313,14 @@ class ProphetPredictor:
 if __name__ == "__main__":
     import os
     import warnings
+    from db_connection import get_db_connection
     
-    # Get the absolute path to the project root directory
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    # Use SQLite Cloud if environment variable is set
+    use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
     
-    # Construct database path relative to project root
-    db_path = os.path.join(project_root, 'data', 'market_data.db')
+    # Connect to database
+    conn = get_db_connection(use_cloud=use_cloud)
     
-    conn = sqlite3.connect(db_path)
     model = ProphetPredictor()
     predictions, metrics = model.update_predictions(conn, 'QQQ')
     print("Predictions:", predictions)

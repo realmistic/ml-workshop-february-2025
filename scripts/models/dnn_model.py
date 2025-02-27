@@ -365,18 +365,16 @@ class DNNPredictor:
         return predictions_df, metrics['test']
 
 if __name__ == "__main__":
-    # Get the absolute path to the project root directory
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    import os
+    import warnings
+    from db_connection import get_db_connection
     
-    # Construct database path relative to project root
-    db_path = os.path.join(project_root, 'data', 'market_data.db')
+    # Use SQLite Cloud if environment variable is set
+    use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
     
-    # Initialize database if needed
-    if not os.path.exists(db_path):
-        from scripts.init_db import create_database
-        create_database()
+    # Connect to database
+    conn = get_db_connection(use_cloud=use_cloud)
     
-    conn = sqlite3.connect(db_path)
     model = DNNPredictor()
     predictions, metrics = model.update_predictions(conn, 'QQQ')
     print("Predictions:", predictions)
