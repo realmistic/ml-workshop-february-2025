@@ -93,7 +93,8 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
             
             print("SQLite Cloud connection successful")
             
-            # Return the cloud connection
+            # Return the cloud connection directly
+            # This is the most reliable approach for SQLite Cloud
             return cloud_conn
             
         except ImportError as e:

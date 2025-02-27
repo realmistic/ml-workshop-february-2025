@@ -138,13 +138,44 @@ class ARIMAPredictor:
             r.close,
             r.volume
         FROM raw_market_data r
-        WHERE r.ticker = :ticker
+        WHERE r.ticker = ?
         ORDER BY r.date;
         """
         print(f"Executing query: {query} with params: {ticker}")
         try:
-            # Use pandas read_sql_query with SQLAlchemy
-            df = pd.read_sql_query(query, conn, params={"ticker": ticker})
+            # Check if connection is SQLAlchemy engine or direct connection
+            if hasattr(conn, 'execute') and callable(conn.execute):
+                # SQLAlchemy engine
+                try:
+                    # Use pandas read_sql_query with SQLAlchemy
+                    df = pd.read_sql_query(
+                        query.replace('?', ':ticker'), 
+                        conn, 
+                        params={"ticker": ticker}
+                    )
+                except Exception as e:
+                    print(f"Error using SQLAlchemy: {str(e)}")
+                    # Fallback to direct execution
+                    cursor = conn.connect().execute(
+                        query.replace('?', ':ticker'), 
+                        {"ticker": ticker}
+                    )
+                    rows = cursor.fetchall()
+                    if not rows:
+                        print("Warning: Query returned 0 rows")
+                        return None
+                    column_names = [col[0] for col in cursor.description]
+                    df = pd.DataFrame(rows, columns=column_names)
+            else:
+                # Direct connection
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker,))
+                rows = cursor.fetchall()
+                if not rows:
+                    print("Warning: Query returned 0 rows")
+                    return None
+                column_names = [description[0] for description in cursor.description]
+                df = pd.DataFrame(rows, columns=column_names)
             
             print(f"Query returned {len(df)} rows")
             if len(df) == 0:
