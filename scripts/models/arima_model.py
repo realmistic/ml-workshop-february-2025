@@ -143,28 +143,21 @@ class ARIMAPredictor:
         """
         print(f"Executing query: {query} with params: {ticker}")
         try:
-            # Try using pandas read_sql_query first
-            try:
-                df = pd.read_sql_query(query, conn, params=(ticker,))
-            except Exception as pandas_error:
-                print(f"Pandas read_sql_query failed: {str(pandas_error)}")
-                print("Falling back to direct SQL execution...")
-                
-                # Fallback to direct SQL execution
-                cursor = conn.cursor()
-                cursor.execute(query, (ticker,))
-                rows = cursor.fetchall()
-                
-                if not rows:
-                    print("Warning: Query returned 0 rows")
-                    return None
-                
-                # Get column names
-                column_names = [description[0] for description in cursor.description]
-                
-                # Convert to DataFrame
-                df = pd.DataFrame(rows, columns=column_names)
-                
+            # Execute query directly using cursor
+            cursor = conn.cursor()
+            cursor.execute(query, (ticker,))
+            rows = cursor.fetchall()
+            
+            if not rows:
+                print("Warning: Query returned 0 rows")
+                return None
+            
+            # Get column names
+            column_names = [description[0] for description in cursor.description]
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(rows, columns=column_names)
+            
             print(f"Query returned {len(df)} rows")
             if len(df) == 0:
                 print("Warning: Query returned 0 rows")
