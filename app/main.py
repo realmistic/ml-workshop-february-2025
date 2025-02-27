@@ -300,6 +300,11 @@ def display_metrics(metrics):
 def main():
     st.title("Market Predictions Dashboard")
     
+    # Debug information
+    st.write("Environment variables:")
+    st.write(f"USE_SQLITECLOUD: {os.environ.get('USE_SQLITECLOUD', 'Not set')}")
+    st.write(f"SQLITECLOUD_URL: {'Set (hidden)' if 'SQLITECLOUD_URL' in os.environ else 'Not set'}")
+    
     try:
         # Connect to database (will use environment variables to determine which DB)
         conn = get_db_connection(pandas_friendly=True)
