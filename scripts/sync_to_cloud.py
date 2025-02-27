@@ -105,12 +105,38 @@ def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
                     print(f"Deleting existing data from {table}...")
                     cursor.execute(f"DELETE FROM {table}")
                     
-                    # Get column names
-                    columns = local_data.columns.tolist()
-                    column_str = ', '.join(columns)
-                    
-                    # Generate placeholders for the SQL query
-                    placeholders = ', '.join(['?' for _ in columns])
+                    # Get column names from the cloud database
+                    try:
+                        cursor.execute(f"PRAGMA table_info({table})")
+                        cloud_columns = [row[1] for row in cursor.fetchall()]
+                        print(f"Cloud columns for {table}: {cloud_columns}")
+                        
+                        # Get column names from the local data
+                        local_columns = local_data.columns.tolist()
+                        print(f"Local columns for {table}: {local_columns}")
+                        
+                        # Find common columns
+                        common_columns = [col for col in local_columns if col in cloud_columns]
+                        print(f"Common columns for {table}: {common_columns}")
+                        
+                        if not common_columns:
+                            print(f"No common columns found for table {table}. Skipping.")
+                            break
+                        
+                        # Use only common columns
+                        column_str = ', '.join(common_columns)
+                        
+                        # Generate placeholders for the SQL query
+                        placeholders = ', '.join(['?' for _ in common_columns])
+                        
+                        # Filter local_data to only include common columns
+                        local_data = local_data[common_columns]
+                    except Exception as e:
+                        print(f"Error getting column info: {str(e)}")
+                        # Fall back to using all columns
+                        columns = local_data.columns.tolist()
+                        column_str = ', '.join(columns)
+                        placeholders = ', '.join(['?' for _ in columns])
                     
                     # Convert DataFrame to list of tuples for executemany
                     data_tuples = [tuple(x) for x in local_data.to_numpy()]

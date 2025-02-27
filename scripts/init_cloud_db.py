@@ -162,10 +162,28 @@ def init_cloud_db(force=False):
         """
     ]
     
-    # Create tables
+    # Drop existing tables and create new ones
     cursor = cloud_conn.cursor()
+    
+    # Get existing tables
+    try:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        existing_tables = [row[0] for row in cursor.fetchall()]
+        print(f"Existing tables: {existing_tables}")
+        
+        # Drop tables in reverse order to avoid foreign key constraints
+        for table in reversed(['raw_market_data', 'arima_features', 'prophet_features', 'dnn_features',
+                              'arima_predictions', 'prophet_predictions', 'dnn_predictions', 'model_performance']):
+            if table in existing_tables:
+                print(f"Dropping table: {table}")
+                cursor.execute(f"DROP TABLE IF EXISTS {table}")
+    except Exception as e:
+        print(f"Error dropping tables: {str(e)}")
+    
+    # Create tables
     for table_sql in tables:
         try:
+            print(f"Executing: {table_sql[:50]}...")
             cursor.execute(table_sql)
         except Exception as e:
             print(f"Error creating table: {str(e)}")
