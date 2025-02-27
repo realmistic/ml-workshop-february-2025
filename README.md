@@ -109,6 +109,46 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### SQLite Cloud Integration
+
+This project supports using SQLite Cloud for database storage, which helps avoid inflating the repository with database updates. By default, the project uses a local SQLite database file, but you can switch to SQLite Cloud:
+
+1. Create a SQLite Cloud account at [sqlitecloud.io](https://sqlitecloud.io)
+2. Create a new database in your SQLite Cloud dashboard
+3. Get your SQLite Cloud connection URL in the format: `sqlitecloud://username:password@hostname:port/database?apikey=your-api-key`
+4. Set up your environment variables using one of these methods:
+
+   **Option 1: Using a .env file (recommended)**
+   ```bash
+   # Copy the sample .env file
+   cp .env.sample .env
+   
+   # Edit the .env file with your actual values
+   # Set SQLITECLOUD_URL to your connection URL
+   # Set USE_SQLITECLOUD to "1" to use SQLite Cloud
+   ```
+
+   **Option 2: Setting environment variables directly**
+   ```bash
+   export SQLITECLOUD_URL="your-connection-url"
+   export USE_SQLITECLOUD="1"  # Set to "1" to use SQLite Cloud, "0" for local SQLite
+   ```
+
+5. Check your SQLite Cloud configuration:
+   ```bash
+   python scripts/check_sqlitecloud.py  # Check SQLite Cloud installation and connection URL
+   ```
+
+6. Test your connection:
+   ```bash
+   python scripts/test_cloud_connection.py  # Test cloud connection
+   python scripts/test_cloud_connection.py --local  # Test local connection
+   ```
+
+For GitHub Actions automatic updates, add your `SQLITECLOUD_URL` as a repository secret. See [Setting Up GitHub Secrets](scripts/setup_github_secrets.md) for detailed instructions.
+
+For Streamlit Cloud deployment with SQLite Cloud, see [Setting Up Streamlit Cloud](scripts/setup_streamlit_cloud.md) for configuration steps.
+
 ## Project Structure
 
 ```
@@ -117,12 +157,20 @@ pip install -r requirements.txt
 │   └── main.py                 # Streamlit dashboard application
 ├── data/
 │   └── market_data.db         # SQLite database with market data and predictions
+├── db_connection.py           # Database connection layer (local/cloud)
+├── .env.sample                # Sample environment variables file
 ├── notebooks/
 │   ├── prophet_experiment.ipynb  # Quick-start Prophet analysis
 │   ├── arima_experiment.ipynb    # Statistical ARIMA modeling
 │   └── dnn_experiment.ipynb      # Advanced Deep Learning approach
 ├── scripts/
 │   ├── init_db.py             # Database initialization script
+│   ├── init_cloud_db.py       # SQLite Cloud database initialization
+│   ├── sync_to_cloud.py       # Sync local database to SQLite Cloud
+│   ├── test_cloud_connection.py # Test SQLite Cloud connection
+│   ├── check_sqlitecloud.py   # Check SQLite Cloud configuration
+│   ├── setup_github_secrets.md  # Guide for GitHub Secrets setup
+│   ├── setup_streamlit_cloud.md # Guide for Streamlit Cloud setup
 │   ├── update_data.py         # Market data update script
 │   ├── train_models.py        # Model training pipeline
 │   └── models/
@@ -160,6 +208,55 @@ streamlit run app/main.py
 ```
 
 The dashboard will be available at http://localhost:8501
+
+### Using SQLite Cloud
+
+If you've set up SQLite Cloud and want to use it:
+
+1. Check your SQLite Cloud configuration:
+```bash
+python scripts/check_sqlitecloud.py  # Check SQLite Cloud installation and connection URL
+```
+
+2. Test your connection:
+```bash
+python scripts/test_cloud_connection.py  # Test cloud connection
+python scripts/test_cloud_connection.py --local  # Test local connection
+python scripts/test_cloud_connection.py --env-file /path/to/.env  # Use specific .env file
+```
+
+2. Initialize the cloud database (first time only):
+```bash
+# If using .env file, make sure USE_SQLITECLOUD=1 is set in your .env file
+python scripts/init_cloud_db.py
+
+# Or if using environment variables directly:
+export SQLITECLOUD_URL="your-connection-url"
+export USE_SQLITECLOUD="1"
+python scripts/init_cloud_db.py
+```
+
+3. Sync your local database to the cloud:
+```bash
+# If using .env file, make sure USE_SQLITECLOUD=1 is set in your .env file
+python scripts/sync_to_cloud.py
+
+# Or if using environment variables directly:
+export SQLITECLOUD_URL="your-connection-url"
+export USE_SQLITECLOUD="1"
+python scripts/sync_to_cloud.py
+```
+
+4. Run the app with SQLite Cloud:
+```bash
+# If using .env file, make sure USE_SQLITECLOUD=1 is set in your .env file
+streamlit run app/main.py
+
+# Or if using environment variables directly:
+export SQLITECLOUD_URL="your-connection-url"
+export USE_SQLITECLOUD="1"
+streamlit run app/main.py
+```
 
 ## Model Comparison
 
