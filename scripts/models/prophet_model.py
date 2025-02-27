@@ -298,16 +298,16 @@ class ProphetPredictor:
             # Convert DataFrame to list of tuples
             prediction_values = predictions_df.values.tolist()
             
-            print(f"Processing {len(prediction_values)} predictions in batches of {BATCH_SIZE}...")
+            print(f"Processing {len(prediction_values)} rows in batches of {BATCH_SIZE}...")
             
             cursor = conn.cursor()
             
-            for i in range(0, len(prediction_values), BATCH_SIZE):
-                batch = prediction_values[i:i+BATCH_SIZE]
-                placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
-                flattened_values = [val for row in batch for val in row]
-                
-                try:
+            try:
+                for i in range(0, len(prediction_values), BATCH_SIZE):
+                    batch = prediction_values[i:i+BATCH_SIZE]
+                    placeholders = ','.join(['(?, ?, ?, ?, ?, ?)'] * len(batch))
+                    flattened_values = [val for row in batch for val in row]
+                    
                     cursor.execute(f"""
                         INSERT OR REPLACE INTO prophet_predictions 
                         (date, ticker, predicted_value, confidence_lower, confidence_upper, is_future) 
@@ -315,13 +315,15 @@ class ProphetPredictor:
                     """, flattened_values)
                     
                     print(f"Inserted batch {i//BATCH_SIZE + 1}/{(len(prediction_values) + BATCH_SIZE - 1)//BATCH_SIZE} for prophet_predictions")
-                except Exception as batch_error:
-                    print(f"Error during batch insert: {str(batch_error)}")
-                    conn.rollback()
-                    raise  # Re-raise the exception to handle it at a higher level
-            
-            conn.commit()
-            print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
+                
+                # Commit all changes
+                conn.commit()
+                print(f"Successfully inserted {len(prediction_values)} predictions using batch inserts")
+                
+            except Exception as e:
+                print(f"Error during batch insert: {str(e)}")
+                conn.rollback()
+                raise  # Re-raise the exception to handle it at a higher level
         
         # Update performance metrics
         metrics = self.evaluate(conn, ticker)
