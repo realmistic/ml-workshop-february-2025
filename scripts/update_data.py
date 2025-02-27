@@ -119,15 +119,31 @@ def calculate_features(df):
     
     return df
 
-def update_market_data(tickers=None):
-    """Fetch and update market data for specified tickers."""
+def update_market_data(tickers=None, use_cloud=None):
+    """
+    Fetch and update market data for specified tickers.
+    
+    Args:
+        tickers: List of tickers to update (default: ['QQQ'])
+        use_cloud: Whether to use SQLite Cloud (default: use environment variable)
+    """
     if tickers is None:
         tickers = ['QQQ']  # Default to QQQ
     elif isinstance(tickers, str):
         tickers = [tickers]
     
+    # Check if we should use SQLite Cloud
+    if use_cloud is None:
+        use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
+    
     # Connect to database
-    conn = get_db_connection()
+    conn = get_db_connection(use_cloud=use_cloud)
+    
+    # Print connection info
+    if use_cloud:
+        print(f"Connected to SQLite Cloud database")
+    else:
+        print(f"Connected to local SQLite database")
     
     for ticker in tickers:
         try:

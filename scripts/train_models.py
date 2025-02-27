@@ -32,12 +32,27 @@ def clear_predictions(conn):
     conn.commit()
     logger.info("Cleared prediction tables")
 
-def train_and_update_all_models(tickers=None):
-    """Train all models and update predictions for specified tickers."""
+def train_and_update_all_models(tickers=None, use_cloud=None):
+    """
+    Train all models and update predictions for specified tickers.
+    
+    Args:
+        tickers: List of tickers to update (default: all tickers in database)
+        use_cloud: Whether to use SQLite Cloud (default: use environment variable)
+    """
     try:
+        # Check if we should use SQLite Cloud
+        if use_cloud is None:
+            use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
+        
         # Connect to database
-        conn = get_db_connection()
-        logger.info("Connected to database")
+        conn = get_db_connection(use_cloud=use_cloud)
+        
+        # Print connection info
+        if use_cloud:
+            logger.info("Connected to SQLite Cloud database")
+        else:
+            logger.info("Connected to local SQLite database")
         
         # Clear previous predictions
         clear_predictions(conn)
