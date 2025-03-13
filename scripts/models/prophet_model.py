@@ -168,21 +168,40 @@ class ProphetPredictor:
             # Get the latest date from raw data
             latest_date = df['ds'].iloc[-1]
             
-            # Create future dates starting from next day
-            # Ensure we predict at least through July 2024 and beyond
-            target_date = pd.Timestamp('2024-07-31')
-            
-            # Calculate how many days to predict
-            if latest_date < target_date:
-                days_to_predict = max((target_date - latest_date).days, 30)  # At least 30 days
-            else:
-                days_to_predict = 30  # Default to 30 days if we're already past July 2024
+            # Create future dates for prediction
+            # For test set, we want to predict the entire test period plus 30 days beyond
+            if split == 'test':
+                # Get the end date of the test set
+                test_end = df[df['split'] == 'test']['ds'].iloc[-1]
                 
-            future_dates = pd.date_range(
-                start=latest_date + pd.Timedelta(days=1),
-                periods=days_to_predict,
-                freq='D'
-            )
+                # Calculate days to predict (entire test period plus 30 days)
+                days_to_predict = (test_end - latest_date).days + 30
+                
+                # Ensure days_to_predict is positive
+                days_to_predict = max(days_to_predict, 30)
+                
+                # Create date range starting from the day after the latest date in the data
+                future_dates = pd.date_range(
+                    start=latest_date + pd.Timedelta(days=1),
+                    periods=days_to_predict,
+                    freq='D'
+                )
+            else:
+                # For train and validation, use the original approach
+                # Ensure we predict at least through July 2024 and beyond
+                target_date = pd.Timestamp('2024-07-31')
+                
+                # Calculate how many days to predict
+                if latest_date < target_date:
+                    days_to_predict = max((target_date - latest_date).days, 30)  # At least 30 days
+                else:
+                    days_to_predict = 30  # Default to 30 days if we're already past July 2024
+                    
+                future_dates = pd.date_range(
+                    start=latest_date + pd.Timedelta(days=1),
+                    periods=days_to_predict,
+                    freq='D'
+                )
             
             # Create future dataframe for current period plus future dates
             in_sample_dates = split_data['ds']
@@ -335,6 +354,34 @@ class ProphetPredictor:
             # Combine predictions
             predictions_df = pd.concat([in_sample_df, out_sample_df])
             
+            # Get existing dates in raw_market_data to handle foreign key constraint
+            is_cloud_conn = 'sqlitecloud' in str(type(conn))
+            if is_cloud_conn:
+                from db_connection import read_data
+                existing_dates_df = read_data(
+                    f"SELECT DISTINCT date FROM raw_market_data WHERE ticker = '{ticker}'",
+                    conn=conn,
+                    close_conn=False
+                )
+            else:
+                existing_dates_df = pd.read_sql_query(
+                    f"SELECT DISTINCT date FROM raw_market_data WHERE ticker = '{ticker}'",
+                    conn
+                )
+            
+            existing_dates = set(existing_dates_df['date'].tolist())
+            
+            # Filter predictions to only include dates that exist in raw_market_data
+            # For in-sample predictions (is_future=False)
+            valid_predictions_df = predictions_df[
+                (predictions_df['is_future'] == False) & 
+                (predictions_df['date'].isin(existing_dates))
+            ]
+            
+            # For future predictions, we'll need to insert them into raw_market_data first
+            # or skip them if we're enforcing foreign key constraints
+            print(f"Filtered from {len(predictions_df)} to {len(valid_predictions_df)} valid predictions due to foreign key constraints")
+            
             # Delete existing predictions for this ticker
             cursor = conn.cursor()
             cursor.execute("DELETE FROM prophet_predictions WHERE ticker = ?", (ticker,))
@@ -344,8 +391,8 @@ class ProphetPredictor:
             # Define batch size
             BATCH_SIZE = 500
             
-            # Convert DataFrame to list of tuples
-            prediction_values = predictions_df.values.tolist()
+            # Convert DataFrame to list of tuples - use valid_predictions_df to respect foreign key constraints
+            prediction_values = valid_predictions_df.values.tolist()
             
             print(f"Processing {len(prediction_values)} rows in batches of {BATCH_SIZE}...")
             

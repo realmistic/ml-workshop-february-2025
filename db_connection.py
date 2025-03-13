@@ -15,16 +15,32 @@ env_paths = [
 for env_path in env_paths:
     if env_path.exists():
         print(f"Loading environment variables from: {env_path}")
-        load_dotenv(dotenv_path=env_path)
+        load_dotenv(dotenv_path=env_path, override=True)
         break
 
-def get_db_connection(use_cloud=None, pandas_friendly=True):
+# Manually read the .env file to ensure we get the correct values
+def read_env_file():
+    """Read environment variables directly from .env file."""
+    env_vars = {}
+    for env_path in env_paths:
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        key, value = line.split('=', 1)
+                        env_vars[key.strip()] = value.strip()
+            break
+    return env_vars
+
+def get_db_connection(use_cloud=None, pandas_friendly=True, direct_connection=False):
     """
     Get database connection based on configuration.
     
     Args:
         use_cloud: Override environment setting (True=cloud, False=local, None=use environment)
         pandas_friendly: If True, return a connection object that works well with pandas
+        direct_connection: If True, always return a direct SQLite connection (not SQLAlchemy engine)
     
     Returns:
         Database connection object
@@ -36,7 +52,7 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
         print(f"USE_SQLITECLOUD environment variable: {os.environ.get('USE_SQLITECLOUD', 'not set')}")
         print(f"Using cloud: {use_cloud}")
     
-    if use_cloud and "SQLITECLOUD_URL" in os.environ:
+    if use_cloud:
         try:
             # Import sqlitecloud only when needed
             import sqlitecloud
@@ -47,8 +63,17 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
                 print(f"Using SQLite Cloud SDK version: {version}")
             except:
                 print("Using SQLite Cloud SDK (version information not available)")
-            # Safely extract server info from URL
-            url = os.environ['SQLITECLOUD_URL']
+            
+            # Get URL directly from .env file
+            env_vars = read_env_file()
+            url = env_vars.get('SQLITECLOUD_URL', os.environ.get('SQLITECLOUD_URL', ''))
+            
+            if not url:
+                print("SQLITECLOUD_URL not found in .env file or environment variables")
+                print("Falling back to local database.")
+                return sqlite3.connect('data/market_data.db')
+                
+            print(f"Using SQLite Cloud URL from .env file")
             try:
                 if '@' in url:
                     server_part = url.split('@')[1].split('?')[0]
@@ -59,7 +84,6 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
                 print(f"Could not parse URL (but will try to connect anyway): {str(e)}")
             
             # Connect to SQLite Cloud
-            url = os.environ["SQLITECLOUD_URL"]
             
             # Create a custom connection function that uses an unverified SSL context
             import socket
@@ -115,7 +139,10 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
             return sqlite3.connect('data/market_data.db')
     else:
         # Use local SQLite
-        if pandas_friendly:
+        if direct_connection:
+            # Always return a direct SQLite connection
+            return sqlite3.connect('data/market_data.db')
+        elif pandas_friendly:
             try:
                 # Import SQLAlchemy
                 from sqlalchemy import create_engine

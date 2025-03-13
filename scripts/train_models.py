@@ -1,7 +1,23 @@
 import os
 import sys
 import logging
+import pandas as pd
 from datetime import datetime
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Try to find .env in multiple locations
+env_paths = [
+    Path('.') / '.env',  # Current directory
+    Path(__file__).parent / '.env',  # Same directory as this file
+    Path(__file__).parent.parent / '.env'  # Project root directory
+]
+
+for env_path in env_paths:
+    if env_path.exists():
+        print(f"Loading environment variables from: {env_path}")
+        load_dotenv(dotenv_path=env_path)
+        break
 
 # Add the project root directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,18 +35,75 @@ logger = logging.getLogger(__name__)
 
 def get_available_tickers(conn):
     """Get list of tickers available in the database."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT ticker FROM raw_market_data")
-    return [row[0] for row in cursor.fetchall()]
+    try:
+        # Check if this is a SQLite Cloud connection
+        is_cloud_conn = 'sqlitecloud' in str(type(conn))
+        
+        if is_cloud_conn:
+            # Import the read_data function from db_connection
+            from db_connection import read_data
+            
+            # Use the read_data function for SQLite Cloud
+            result = read_data(
+                "SELECT DISTINCT ticker FROM raw_market_data",
+                conn=conn,
+                close_conn=False
+            )
+            return result['ticker'].tolist()
+        elif hasattr(conn, 'execute') and callable(conn.execute):
+            # SQLAlchemy engine
+            from sqlalchemy import text
+            result = pd.read_sql_query(
+                "SELECT DISTINCT ticker FROM raw_market_data",
+                conn
+            )
+            return result['ticker'].tolist()
+        else:
+            # Direct connection
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT ticker FROM raw_market_data")
+            return [row[0] for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"Error getting available tickers: {str(e)}")
+        # Return default ticker if we can't get the list
+        return ['QQQ']
 
 def clear_predictions(conn):
     """Clear all prediction tables."""
-    cursor = conn.cursor()
     tables = ['arima_predictions', 'prophet_predictions', 'dnn_predictions', 'model_performance']
-    for table in tables:
-        cursor.execute(f"DELETE FROM {table}")
-    conn.commit()
-    logger.info("Cleared prediction tables")
+    
+    try:
+        # Check if this is a SQLite Cloud connection
+        is_cloud_conn = 'sqlitecloud' in str(type(conn))
+        
+        if is_cloud_conn:
+            # Import the read_data function from db_connection
+            from db_connection import read_data
+            
+            # Use the read_data function for SQLite Cloud
+            for table in tables:
+                read_data(
+                    f"DELETE FROM {table}",
+                    conn=conn,
+                    close_conn=False
+                )
+        elif hasattr(conn, 'execute') and callable(conn.execute):
+            # SQLAlchemy engine
+            from sqlalchemy import text
+            for table in tables:
+                conn.execute(text(f"DELETE FROM {table}"))
+            conn.commit()
+        else:
+            # Direct connection
+            cursor = conn.cursor()
+            for table in tables:
+                cursor.execute(f"DELETE FROM {table}")
+            conn.commit()
+        
+        logger.info("Cleared prediction tables")
+    except Exception as e:
+        logger.error(f"Error clearing prediction tables: {str(e)}")
+        # Continue execution even if clearing fails
 
 def train_and_update_all_models(tickers=None, use_cloud=None):
     """
@@ -45,8 +118,8 @@ def train_and_update_all_models(tickers=None, use_cloud=None):
         if use_cloud is None:
             use_cloud = os.environ.get("USE_SQLITECLOUD", "0").lower() in ("1", "true", "yes")
         
-        # Connect to database
-        conn = get_db_connection(use_cloud=use_cloud)
+        # Connect to database with direct connection to ensure compatibility with all models
+        conn = get_db_connection(use_cloud=use_cloud, direct_connection=True)
         
         # Print connection info
         if use_cloud:
@@ -94,7 +167,14 @@ def train_and_update_all_models(tickers=None, use_cloud=None):
                     logger.error(f"Error updating {name} model for {ticker}: {str(e)}")
                     continue
         
-        conn.close()
+        # Close connection based on its type
+        if hasattr(conn, 'dispose') and callable(conn.dispose):
+            # SQLAlchemy engine
+            conn.dispose()
+        elif hasattr(conn, 'close') and callable(conn.close):
+            # Direct connection
+            conn.close()
+        
         logger.info("All models updated successfully")
         return results
         
@@ -104,5 +184,10 @@ def train_and_update_all_models(tickers=None, use_cloud=None):
 
 if __name__ == "__main__":
     logger.info("Starting model training and updates...")
+    
+    # Print environment variables for debugging (without exposing values)
+    logger.info(f"USE_SQLITECLOUD is set: {'yes' if 'USE_SQLITECLOUD' in os.environ else 'no'}")
+    logger.info(f"SQLITECLOUD_URL is set: {'yes' if 'SQLITECLOUD_URL' in os.environ else 'no'}")
+    
     results = train_and_update_all_models(['QQQ'])  # Default to QQQ
     logger.info("Completed model training and updates")

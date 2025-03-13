@@ -243,24 +243,34 @@ class DNNPredictor:
                     self.model.predict(X, verbose=0)
                 )
                 
-                # Store predicted returns with percentage-based confidence intervals (similar to ARIMA)
-                # Use 5% of the predicted value for confidence intervals
+                # Calculate confidence intervals based on historical prediction errors
+                # First, calculate the errors between predictions and actual values
+                actual_returns = split_data['y_return'].values
+                errors = actual_returns[:len(pred_returns)] - pred_returns.flatten()
+                
+                # Calculate the standard deviation of errors
+                error_std = np.std(errors)
+                
+                # Use 2 standard deviations for 95% confidence interval
+                confidence_width = 2 * error_std
+                
+                # Store predictions with dynamic confidence intervals
                 predictions[split] = {
                     'in_sample': {
                         'dates': split_data.index,
                         'predicted_value': pred_returns.flatten(),
-                        'confidence_lower': pred_returns.flatten() * 0.95,  # 5% below prediction
-                        'confidence_upper': pred_returns.flatten() * 1.05   # 5% above prediction
+                        'confidence_lower': pred_returns.flatten() - confidence_width,
+                        'confidence_upper': pred_returns.flatten() + confidence_width
                     },
                     'out_of_sample': {
                         'dates': pd.date_range(
                             start=split_data.index[-1] + pd.Timedelta(days=1),
-                            periods=3,
+                            periods=30,  # Predict 30 days into the future
                             freq='D'
                         ),
-                        'predicted_value': pred_returns[-1] * np.ones(3),
-                        'confidence_lower': (pred_returns[-1] * 0.95) * np.ones(3),  # 5% below prediction
-                        'confidence_upper': (pred_returns[-1] * 1.05) * np.ones(3)   # 5% above prediction
+                        'predicted_value': pred_returns[-1] * np.ones(30),
+                        'confidence_lower': (pred_returns[-1] - confidence_width) * np.ones(30),
+                        'confidence_upper': (pred_returns[-1] + confidence_width) * np.ones(30)
                     }
                 }
             except Exception as e:
@@ -376,6 +386,34 @@ class DNNPredictor:
             # Combine predictions
             predictions_df = pd.concat([in_sample_df, out_sample_df])
             
+            # Get existing dates in raw_market_data to handle foreign key constraint
+            is_cloud_conn = 'sqlitecloud' in str(type(conn))
+            if is_cloud_conn:
+                from db_connection import read_data
+                existing_dates_df = read_data(
+                    f"SELECT DISTINCT date FROM raw_market_data WHERE ticker = '{ticker}'",
+                    conn=conn,
+                    close_conn=False
+                )
+            else:
+                existing_dates_df = pd.read_sql_query(
+                    f"SELECT DISTINCT date FROM raw_market_data WHERE ticker = '{ticker}'",
+                    conn
+                )
+            
+            existing_dates = set(existing_dates_df['date'].tolist())
+            
+            # Filter predictions to only include dates that exist in raw_market_data
+            # For in-sample predictions (is_future=False)
+            valid_predictions_df = predictions_df[
+                (predictions_df['is_future'] == False) & 
+                (predictions_df['date'].isin(existing_dates))
+            ]
+            
+            # For future predictions, we'll need to insert them into raw_market_data first
+            # or skip them if we're enforcing foreign key constraints
+            print(f"Filtered from {len(predictions_df)} to {len(valid_predictions_df)} valid predictions due to foreign key constraints")
+            
             # Delete existing predictions for this ticker
             cursor = conn.cursor()
             cursor.execute("DELETE FROM dnn_predictions WHERE ticker = ?", (ticker,))
@@ -385,8 +423,8 @@ class DNNPredictor:
             # Define batch size
             BATCH_SIZE = 500
             
-            # Convert DataFrame to list of tuples
-            prediction_values = predictions_df.values.tolist()
+            # Convert DataFrame to list of tuples - use valid_predictions_df to respect foreign key constraints
+            prediction_values = valid_predictions_df.values.tolist()
             
             print(f"Processing {len(prediction_values)} rows in batches of {BATCH_SIZE}...")
             
