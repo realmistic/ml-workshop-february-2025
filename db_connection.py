@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import pandas as pd
+import sqlitecloud
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -128,3 +130,43 @@ def get_db_connection(use_cloud=None, pandas_friendly=True):
                 return sqlite3.connect('data/market_data.db')
         else:
             return sqlite3.connect('data/market_data.db')
+
+def read_data(query, params=None, conn=None, close_conn=False):
+    """
+    Read data from the database using a SQL query.
+    This function is specifically designed for SQLite Cloud connections.
+    
+    Args:
+        query: SQL query to execute
+        params: Parameters for the query (optional)
+        conn: Database connection (optional, will create one if not provided)
+        close_conn: Whether to close the connection after execution (default: False)
+    
+    Returns:
+        pandas DataFrame with the query results
+    """
+    # Get connection if not provided
+    if conn is None:
+        conn = get_db_connection(use_cloud=True)
+        close_conn = True
+    
+    try:
+        # Execute query and convert to pandas DataFrame
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        
+        # Get column names from cursor description
+        if cursor.description:
+            columns = [desc[0] for desc in cursor.description]
+            data = cursor.fetchall()
+            df = pd.DataFrame(data, columns=columns)
+            return df
+        else:
+            # Query didn't return any data (e.g., INSERT, UPDATE, DELETE)
+            return pd.DataFrame()
+    finally:
+        if close_conn:
+            conn.close()

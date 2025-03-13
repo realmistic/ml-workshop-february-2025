@@ -113,6 +113,8 @@ pip install -r requirements.txt
 
 This project supports using SQLite Cloud for database storage, which helps avoid inflating the repository with database updates. By default, the project uses a local SQLite database file, but you can switch to SQLite Cloud:
 
+> **Note:** The models have been optimized for SQLite Cloud compatibility. This includes proper query formatting and data type conversions to ensure seamless read/write operations with the cloud database.
+
 1. Create a SQLite Cloud account at [sqlitecloud.io](https://sqlitecloud.io)
 2. Create a new database in your SQLite Cloud dashboard
 3. Get your SQLite Cloud connection URL in the format: `sqlitecloud://username:password@hostname:port/database?apikey=your-api-key`

@@ -13,7 +13,7 @@ from db_connection import get_db_connection
 # Increase socket timeout
 socket.setdefaulttimeout(60)  # 60 seconds timeout
 
-def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
+def sync_to_cloud(max_retries=3, batch_size=500, force_init=False, full_sync=False):
     """Sync local database to SQLite Cloud."""
     if "SQLITECLOUD_URL" not in os.environ:
         print("Error: SQLITECLOUD_URL environment variable not set")
@@ -81,9 +81,20 @@ def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
         try:
             print(f"Syncing table: {table}")
             
-            # Force a full sync by getting all data from the local database
-            print(f"Forcing full sync for table: {table}")
-            query = f"SELECT * FROM {table}"
+            # For prediction and performance tables, we'll get all data
+            # For raw data and feature tables, we'll get only the latest data for incremental updates
+            # Unless full_sync is True, in which case we'll get all data for all tables
+            if full_sync or table in ['arima_predictions', 'prophet_predictions', 'dnn_predictions', 'model_performance']:
+                print(f"Getting all data for {table}...")
+                query = f"SELECT * FROM {table}"
+            else:
+                # Get data from the last 7 days for incremental updates
+                print(f"Getting latest data for {table} (last 7 days)...")
+                query = f"""
+                SELECT * FROM {table} 
+                WHERE date >= date('now', '-7 days')
+                """
+            
             local_data = pd.read_sql_query(query, local_conn)
             
             if local_data.empty:
@@ -101,9 +112,14 @@ def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
                     # Begin a transaction explicitly
                     cursor.execute("BEGIN TRANSACTION")
                     
-                    # First, delete all existing data in the table
-                    print(f"Deleting existing data from {table}...")
-                    cursor.execute(f"DELETE FROM {table}")
+                    # For prediction and performance tables, we'll replace all data
+                    # For raw data and feature tables, we'll do an incremental update
+                    if table in ['arima_predictions', 'prophet_predictions', 'dnn_predictions', 'model_performance']:
+                        print(f"Replacing all data in {table}...")
+                        cursor.execute(f"DELETE FROM {table}")
+                    else:
+                        print(f"Performing incremental update for {table}...")
+                        # We'll use INSERT OR REPLACE to update existing records and add new ones
                     
                     # Get column names from the cloud database
                     try:
@@ -193,5 +209,13 @@ def sync_to_cloud(max_retries=3, batch_size=500, force_init=True):
     return True
 
 if __name__ == "__main__":
-    if not sync_to_cloud():
+    import argparse
+    
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Sync local database to SQLite Cloud')
+    parser.add_argument('--force-init', action='store_true', help='Force initialization of cloud database')
+    parser.add_argument('--full-sync', action='store_true', help='Force full sync of all data')
+    args = parser.parse_args()
+    
+    if not sync_to_cloud(force_init=args.force_init, full_sync=args.full_sync):
         sys.exit(1)

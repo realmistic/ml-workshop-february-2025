@@ -11,19 +11,24 @@ class ProphetPredictor:
         
     def prepare_data(self, conn, ticker):
         """Prepare data for Prophet model."""
-        query = """
-        SELECT
-            r.date as ds,
-            r.open,
-            r.close,
-            r.volume
-        FROM raw_market_data r
-        WHERE r.ticker = ?
-        ORDER BY r.date;
-        """
+        query = "SELECT r.date as ds, r.open, r.close, r.volume FROM raw_market_data r WHERE r.ticker = ? ORDER BY r.date;"
         try:
-            # Check if connection is SQLAlchemy engine or direct connection
-            if hasattr(conn, 'execute') and callable(conn.execute):
+            # Check if this is a SQLite Cloud connection
+            is_cloud_conn = 'sqlitecloud' in str(type(conn))
+            
+            if is_cloud_conn:
+                # Import the read_data function from db_connection
+                from db_connection import read_data
+                
+                # Use the read_data function for SQLite Cloud
+                modified_query = query.replace('?', "'" + ticker + "'")
+                print(f"Modified query for SQLite Cloud: {modified_query}")
+                df = read_data(
+                    modified_query,
+                    conn=conn,
+                    close_conn=False
+                )
+            elif hasattr(conn, 'execute') and callable(conn.execute):
                 # SQLAlchemy engine
                 try:
                     # Use pandas read_sql_query with SQLAlchemy
@@ -82,7 +87,19 @@ class ProphetPredictor:
         
         # Get raw data dates
         dates_query = "SELECT MIN(date) as min_date, MAX(date) as max_date FROM raw_market_data"
-        dates = pd.read_sql_query(dates_query, conn)
+        
+        # Check if this is a SQLite Cloud connection
+        is_cloud_conn = 'sqlitecloud' in str(type(conn))
+        
+        if is_cloud_conn:
+            # Import the read_data function from db_connection
+            from db_connection import read_data
+            
+            # Use the read_data function for SQLite Cloud
+            dates = read_data(dates_query, conn=conn, close_conn=False)
+        else:
+            # Use pandas directly for SQLite or SQLAlchemy connections
+            dates = pd.read_sql_query(dates_query, conn)
         min_date = pd.to_datetime(dates['min_date'].iloc[0])
         max_date = pd.to_datetime(dates['max_date'].iloc[0])
         
@@ -369,14 +386,14 @@ class ProphetPredictor:
             'pl_ratio': metrics['test']['pl_ratio']
         }]
         
-        # Convert to list of values
+        # Convert to list of values with Python native types
         metrics_values = [[
             m['date'], m['ticker'], m['model'], 
-            m['mae'], m['rmse'], m['accuracy'], 
-            m['win_rate'], m['loss_rate'], 
-            m['uncond_win_rate'], m['uncond_loss_rate'], 
-            m['avg_return'], m['n_trades'], 
-            m['trading_freq'], m['pl_ratio']
+            float(m['mae']), float(m['rmse']), float(m['accuracy']), 
+            float(m['win_rate']), float(m['loss_rate']), 
+            float(m['uncond_win_rate']), float(m['uncond_loss_rate']), 
+            float(m['avg_return']), int(m['n_trades']), 
+            float(m['trading_freq']), float(m['pl_ratio'])
         ] for m in metrics_data]
         
         # Insert metrics using batch insert
@@ -401,7 +418,11 @@ class ProphetPredictor:
 
 if __name__ == "__main__":
     import os
+    import sys
     import warnings
+    
+    # Add the project root directory to the Python path
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from db_connection import get_db_connection
     
     # Use SQLite Cloud if environment variable is set

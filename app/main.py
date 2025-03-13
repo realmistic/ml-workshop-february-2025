@@ -7,7 +7,7 @@ import sys
 
 # Add the project root directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from db_connection import get_db_connection
+from db_connection import get_db_connection, read_data
 
 # Set page config
 st.set_page_config(
@@ -24,15 +24,32 @@ def load_data(conn=None):
         conn = get_db_connection(pandas_friendly=True)
     
     # Get raw data
-    market_data = pd.read_sql_query(
-        """
-        SELECT date, close
-        FROM raw_market_data
-        WHERE ticker = 'QQQ'
-        ORDER BY date
-        """,
-        conn
-    )
+    # Check if this is a SQLite Cloud connection
+    is_cloud_conn = 'sqlitecloud' in str(type(conn))
+    
+    if is_cloud_conn:
+        # Use the read_data function for SQLite Cloud
+        market_data = read_data(
+            """
+            SELECT date, close
+            FROM raw_market_data
+            WHERE ticker = 'QQQ'
+            ORDER BY date
+            """,
+            conn=conn,
+            close_conn=False
+        )
+    else:
+        # Use pandas directly for SQLite or SQLAlchemy connections
+        market_data = pd.read_sql_query(
+            """
+            SELECT date, close
+            FROM raw_market_data
+            WHERE ticker = 'QQQ'
+            ORDER BY date
+            """,
+            conn
+        )
     # Convert date to datetime and create a copy to avoid SettingWithCopyWarning
     market_data = market_data.copy()
     market_data['date'] = pd.to_datetime(market_data['date'])
@@ -57,17 +74,36 @@ def load_data(conn=None):
     for model in ['arima', 'prophet', 'dnn']:
         # Get predictions for test period
         test_start = market_data.index[val_end].strftime('%Y-%m-%d')
-        pred_df = pd.read_sql_query(
-            f"""
-            SELECT *
-            FROM {model}_predictions
-            WHERE ticker = 'QQQ'
-            AND date >= ?
-            ORDER BY date
-            """,
-            conn,
-            params=(test_start,)
-        )
+        
+        # Check if this is a SQLite Cloud connection
+        is_cloud_conn = 'sqlitecloud' in str(type(conn))
+        
+        if is_cloud_conn:
+            # Use the read_data function for SQLite Cloud
+            pred_df = read_data(
+                f"""
+                SELECT *
+                FROM {model}_predictions
+                WHERE ticker = 'QQQ'
+                AND date >= '{test_start}'
+                ORDER BY date
+                """,
+                conn=conn,
+                close_conn=False
+            )
+        else:
+            # Use pandas directly for SQLite or SQLAlchemy connections
+            pred_df = pd.read_sql_query(
+                f"""
+                SELECT *
+                FROM {model}_predictions
+                WHERE ticker = 'QQQ'
+                AND date >= ?
+                ORDER BY date
+                """,
+                conn,
+                params=(test_start,)
+            )
         # Convert date column to datetime and set as index
         pred_df = pd.DataFrame(pred_df)  # Ensure it's a DataFrame
         pred_df['date'] = pd.to_datetime(pred_df['date'])
@@ -95,18 +131,40 @@ def load_data(conn=None):
         predictions[model] = pred_df
         
         # Get latest metrics
-        metrics_df = pd.read_sql_query(
-            f"""
-            SELECT *
-            FROM model_performance
-            WHERE model = '{model}'
-            AND ticker = 'QQQ'
-            ORDER BY date DESC
-            LIMIT 1
-            """,
-            conn,
-            parse_dates=['date']
-        )
+        # Check if this is a SQLite Cloud connection
+        is_cloud_conn = 'sqlitecloud' in str(type(conn))
+        
+        if is_cloud_conn:
+            # Use the read_data function for SQLite Cloud
+            metrics_df = read_data(
+                f"""
+                SELECT *
+                FROM model_performance
+                WHERE model = '{model}'
+                AND ticker = 'QQQ'
+                ORDER BY date DESC
+                LIMIT 1
+                """,
+                conn=conn,
+                close_conn=False
+            )
+            # Convert date column to datetime
+            if 'date' in metrics_df.columns:
+                metrics_df['date'] = pd.to_datetime(metrics_df['date'])
+        else:
+            # Use pandas directly for SQLite or SQLAlchemy connections
+            metrics_df = pd.read_sql_query(
+                f"""
+                SELECT *
+                FROM model_performance
+                WHERE model = '{model}'
+                AND ticker = 'QQQ'
+                ORDER BY date DESC
+                LIMIT 1
+                """,
+                conn,
+                parse_dates=['date']
+            )
         metrics[model] = metrics_df
     
     return market_data, predictions, metrics

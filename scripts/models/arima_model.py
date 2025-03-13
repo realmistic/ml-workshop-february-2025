@@ -8,30 +8,6 @@ import warnings
 warnings.simplefilter("ignore", DeprecationWarning)
 warnings.simplefilter("ignore", FutureWarning)
 
-def download_stock_data(ticker_symbol):
-    """Download stock data with error handling and validation"""
-    try:
-        # Create ticker object and get history
-        yticker = yf.Ticker(ticker_symbol)
-        df = yticker.history(period='max')
-        
-        if df.empty:
-            raise ValueError(f"No data downloaded for {ticker_symbol}")
-            
-        print(f"Downloaded {len(df)} days of {ticker_symbol} data")
-        
-        # Basic validation
-        required_columns = ['Open', 'Close', 'Volume']
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-            
-        return df
-    
-    except Exception as e:
-        print(f"Error downloading {ticker_symbol}: {str(e)}")
-        return None
-
 def transform_stock_data(df):
     """Transform stock data for ARIMA"""
     if df is None:
@@ -131,20 +107,26 @@ class ARIMAPredictor:
     def predict(self, conn, ticker):
         """Generate predictions for ticker"""
         # Get raw data
-        query = """
-        SELECT
-            r.date,
-            r.open,
-            r.close,
-            r.volume
-        FROM raw_market_data r
-        WHERE r.ticker = ?
-        ORDER BY r.date;
-        """
-        print(f"Executing query: {query} with params: {ticker}")
+        query = "SELECT r.date, r.open, r.close, r.volume FROM raw_market_data r WHERE r.ticker = ? ORDER BY r.date;"
+        # Print the query with commas highlighted
+        print(f"Executing query: {query.replace(',', '[COMMA]')} with params: {ticker}")
         try:
-            # Check if connection is SQLAlchemy engine or direct connection
-            if hasattr(conn, 'execute') and callable(conn.execute):
+            # Check if this is a SQLite Cloud connection
+            is_cloud_conn = 'sqlitecloud' in str(type(conn))
+            
+            if is_cloud_conn:
+                # Import the read_data function from db_connection
+                from db_connection import read_data
+                
+                # Use the read_data function for SQLite Cloud
+                modified_query = query.replace('?', "'" + ticker + "'")
+                print(f"Modified query for SQLite Cloud: {modified_query.replace(',', '[COMMA]')}")
+                df = read_data(
+                    modified_query,
+                    conn=conn,
+                    close_conn=False
+                )
+            elif hasattr(conn, 'execute') and callable(conn.execute):
                 # SQLAlchemy engine
                 try:
                     # Use pandas read_sql_query with SQLAlchemy
@@ -370,14 +352,14 @@ class ARIMAPredictor:
             'pl_ratio': metrics['test']['pl_ratio']
         }]
         
-        # Convert to list of values
+        # Convert to list of values with Python native types
         metrics_values = [[
             m['date'], m['ticker'], m['model'], 
-            m['mae'], m['rmse'], m['accuracy'], 
-            m['win_rate'], m['loss_rate'], 
-            m['uncond_win_rate'], m['uncond_loss_rate'], 
-            m['avg_return'], m['n_trades'], 
-            m['trading_freq'], m['pl_ratio']
+            float(m['mae']), float(m['rmse']), float(m['accuracy']), 
+            float(m['win_rate']), float(m['loss_rate']), 
+            float(m['uncond_win_rate']), float(m['uncond_loss_rate']), 
+            float(m['avg_return']), int(m['n_trades']), 
+            float(m['trading_freq']), float(m['pl_ratio'])
         ] for m in metrics_data]
         
         # Insert metrics using batch insert
@@ -402,8 +384,12 @@ class ARIMAPredictor:
 
 if __name__ == "__main__":
     import os
+    import sys
     import warnings
     import statsmodels.tools.sm_exceptions
+    
+    # Add the project root directory to the Python path
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from db_connection import get_db_connection
 
     # Suppress specific warnings

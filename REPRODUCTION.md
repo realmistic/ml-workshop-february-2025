@@ -244,3 +244,21 @@ streamlit run app/main.py
 - Database: Check table relationships and constraints
 - Models: Monitor training logs and metrics
 - Dashboard: Verify data pipeline completion
+
+## SQLite Cloud Integration Fixes
+
+Several optimizations were made to ensure compatibility with SQLite Cloud:
+
+1. **SQL Query Formatting**: 
+   - Converted multi-line SQL queries to single-line format to prevent issues with commas between column names being lost during processing
+   - Added debug logging to show actual queries being executed
+
+2. **Data Type Conversion**:
+   - Added explicit conversion of numpy data types (int64, float64) to Python native types (int, float) when inserting metrics into the database
+   - This prevents serialization errors with SQLite Cloud's driver
+
+3. **Module Import Paths**:
+   - Added code to append the project root directory to the Python path in model scripts
+   - Ensures models can find the `db_connection` module when run directly
+
+These changes ensure that all three models (ARIMA, Prophet, and DNN) can seamlessly read from and write to both local SQLite and SQLite Cloud databases.
