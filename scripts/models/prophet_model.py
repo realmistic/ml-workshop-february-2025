@@ -169,9 +169,18 @@ class ProphetPredictor:
             latest_date = df['ds'].iloc[-1]
             
             # Create future dates starting from next day
+            # Ensure we predict at least through July 2024 and beyond
+            target_date = pd.Timestamp('2024-07-31')
+            
+            # Calculate how many days to predict
+            if latest_date < target_date:
+                days_to_predict = max((target_date - latest_date).days, 30)  # At least 30 days
+            else:
+                days_to_predict = 30  # Default to 30 days if we're already past July 2024
+                
             future_dates = pd.date_range(
                 start=latest_date + pd.Timedelta(days=1),
-                periods=3,
+                periods=days_to_predict,
                 freq='D'
             )
             

@@ -456,7 +456,12 @@ def main():
             # Display comprehensive metrics
             display_metrics(metrics)
         
-        conn.close()
+        # Close connection if it has a close method (SQLite connection)
+        if hasattr(conn, 'close') and callable(conn.close):
+            conn.close()
+        # For SQLAlchemy engine, use dispose method
+        elif hasattr(conn, 'dispose') and callable(conn.dispose):
+            conn.dispose()
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")

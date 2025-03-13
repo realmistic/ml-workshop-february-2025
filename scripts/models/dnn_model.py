@@ -243,13 +243,14 @@ class DNNPredictor:
                     self.model.predict(X, verbose=0)
                 )
                 
-                # Store predicted returns
+                # Store predicted returns with percentage-based confidence intervals (similar to ARIMA)
+                # Use 5% of the predicted value for confidence intervals
                 predictions[split] = {
                     'in_sample': {
                         'dates': split_data.index,
                         'predicted_value': pred_returns.flatten(),
-                        'confidence_lower': pred_returns.flatten() - 1.96 * np.std(pred_returns),
-                        'confidence_upper': pred_returns.flatten() + 1.96 * np.std(pred_returns)
+                        'confidence_lower': pred_returns.flatten() * 0.95,  # 5% below prediction
+                        'confidence_upper': pred_returns.flatten() * 1.05   # 5% above prediction
                     },
                     'out_of_sample': {
                         'dates': pd.date_range(
@@ -258,8 +259,8 @@ class DNNPredictor:
                             freq='D'
                         ),
                         'predicted_value': pred_returns[-1] * np.ones(3),
-                        'confidence_lower': (pred_returns[-1] - 1.96 * np.std(pred_returns)) * np.ones(3),
-                        'confidence_upper': (pred_returns[-1] + 1.96 * np.std(pred_returns)) * np.ones(3)
+                        'confidence_lower': (pred_returns[-1] * 0.95) * np.ones(3),  # 5% below prediction
+                        'confidence_upper': (pred_returns[-1] * 1.05) * np.ones(3)   # 5% above prediction
                     }
                 }
             except Exception as e:
@@ -329,7 +330,7 @@ class DNNPredictor:
             
             metrics[split] = {
                 'mae': mae,
-                'rmse': rmse,
+                'rmse': rmse,  # Add the missing rmse key
                 'accuracy': win_rate,  # Use win rate as accuracy
                 'win_rate': win_rate,
                 'loss_rate': loss_rate,
